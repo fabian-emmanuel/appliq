@@ -1,0 +1,54 @@
+use crate::configs::api_doc::ApiDoc;
+use crate::configs::routes::{ADD_APPLICATION, ADD_APPLICATION_STATUS, GET_APPLICATIONS_FOR_USER, LOGIN, SWAGGER_UI, USER_DATA, USER_REGISTER};
+use crate::handlers::application_handler::{add_application_status, fetch_applications_for_user_with_filters, register_application, ApplicationHandler};
+use crate::handlers::auth_handler::{login, AuthHandler};
+use crate::handlers::user_handler::{get_user_data, register_user, UserHandler};
+use crate::repositories::application_repository::ApplicationRepository;
+use crate::repositories::user_repository::UserRepository;
+use crate::services::application_service::ApplicationService;
+use crate::services::auth_service::AuthService;
+use crate::services::user_service::UserService;
+use axum::routing::{get, post};
+use axum::Router;
+use sqlx::PgPool;
+use std::sync::Arc;
+use utoipa::{OpenApi};
+use utoipa_swagger_ui::SwaggerUi;
+
+
+pub fn app_router(db_pool: Arc<PgPool>) -> Router {
+    let user_repo = Arc::new(UserRepository::new(db_pool.clone()));
+    let user_service = Arc::new(UserService::new(user_repo.clone()));
+    let user_handler = Arc::new(UserHandler {
+        user_service: user_service.clone(),
+    });
+    let user_handler_router = Router::new()
+        .route(USER_REGISTER, post(register_user))
+        .route(USER_DATA, get(get_user_data))
+        .with_state(user_handler);
+
+    let auth_service = Arc::new(AuthService::new(user_repo.clone()));
+    let auth_handler = Arc::new(AuthHandler { auth_service });
+    let auth_handler_router = Router::new()
+        .route(LOGIN, post(login))
+        .with_state(auth_handler);
+
+    let swagger_router = Router::new()
+        .merge(SwaggerUi::new(SWAGGER_UI).url("/api-docs/openapi.json", ApiDoc::openapi()));
+
+
+    let application_repo = Arc::new(ApplicationRepository::new(db_pool.clone()));
+    let application_service = Arc::new(ApplicationService::new(application_repo));
+    let application_handler = Arc::new(ApplicationHandler {application_service});
+    let application_handler_router = Router::new()
+        .route(ADD_APPLICATION, post(register_application))
+        .route(ADD_APPLICATION_STATUS, post(add_application_status))
+        .route(GET_APPLICATIONS_FOR_USER, get(fetch_applications_for_user_with_filters))
+        .with_state(application_handler);
+
+    Router::new()
+        .merge(user_handler_router)
+        .merge(swagger_router)
+        .merge(auth_handler_router)
+        .merge(application_handler_router)
+}
