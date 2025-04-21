@@ -14,9 +14,15 @@ use sqlx::PgPool;
 use std::sync::Arc;
 use utoipa::{OpenApi};
 use utoipa_swagger_ui::SwaggerUi;
+use tower_http::cors::{CorsLayer, Any};
 
 
 pub fn app_router(db_pool: Arc<PgPool>) -> Router {
+    let cors = CorsLayer::new()
+        .allow_origin(Any)
+        .allow_methods(Any)
+        .allow_headers(Any);
+
     let user_repo = Arc::new(UserRepository::new(db_pool.clone()));
     let user_service = Arc::new(UserService::new(user_repo.clone()));
     let user_handler = Arc::new(UserHandler {
@@ -51,4 +57,5 @@ pub fn app_router(db_pool: Arc<PgPool>) -> Router {
         .merge(swagger_router)
         .merge(auth_handler_router)
         .merge(application_handler_router)
+        .layer(cors)
 }
