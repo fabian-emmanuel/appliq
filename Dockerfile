@@ -24,11 +24,11 @@ RUN apt-get update && \
     rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
-COPY --from=builder /app/target/release/job-application-tracker .
+COPY --from=builder /app/target/release/appliq .
 # Copy migrations to the final stage as well
 COPY ./db ./db
 
 # Expose the Axum port
 EXPOSE 80
 
-CMD ["./job-application-tracker"]
+CMD ["./appliq"]

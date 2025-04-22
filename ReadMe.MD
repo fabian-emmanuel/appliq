@@ -1,4 +1,4 @@
-# 📌 Job Application Tracker
+# 📌 AppliQ
 
 A seamless web application that helps you efficiently track all your job applications, including statuses, types, and relevant metadata.
 
@@ -48,7 +48,7 @@ Built with ❤️ using **Rust**, **Axum**, **SQLx**, and **PostgreSQL**.
 
    ```bash
    git clone https://github.com/your-username/job-application-tracker.git
-   cd job-application-tracker
+   cd appliq
    ```
 
 2. **Create `.env` file**

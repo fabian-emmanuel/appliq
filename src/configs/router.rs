@@ -1,5 +1,5 @@
 use crate::configs::api_doc::ApiDoc;
-use crate::configs::routes::{ADD_APPLICATION, ADD_APPLICATION_STATUS, GET_APPLICATIONS_FOR_USER, LOGIN, SWAGGER_UI, USER_DATA, USER_REGISTER};
+use crate::configs::routes::{ADD_APPLICATION, ADD_APPLICATION_STATUS, GET_APPLICATIONS_FOR_USER, LOGIN, USER_DATA, USER_REGISTER};
 use crate::handlers::application_handler::{add_application_status, fetch_applications_for_user_with_filters, register_application, ApplicationHandler};
 use crate::handlers::auth_handler::{login, AuthHandler};
 use crate::handlers::user_handler::{get_user_data, register_user, UserHandler};
@@ -12,9 +12,9 @@ use axum::routing::{get, post};
 use axum::Router;
 use sqlx::PgPool;
 use std::sync::Arc;
-use utoipa::{OpenApi};
+use tower_http::cors::{Any, CorsLayer};
+use utoipa::OpenApi;
 use utoipa_swagger_ui::SwaggerUi;
-use tower_http::cors::{CorsLayer, Any};
 
 
 pub fn app_router(db_pool: Arc<PgPool>) -> Router {
@@ -40,7 +40,7 @@ pub fn app_router(db_pool: Arc<PgPool>) -> Router {
         .with_state(auth_handler);
 
     let swagger_router = Router::new()
-        .merge(SwaggerUi::new(SWAGGER_UI).url("/api-docs/openapi.json", ApiDoc::openapi()));
+        .merge(SwaggerUi::new("/").url("/api-docs/openapi.json", ApiDoc::openapi()));
 
 
     let application_repo = Arc::new(ApplicationRepository::new(db_pool.clone()));

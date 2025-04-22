@@ -3,7 +3,7 @@ use utoipa::{OpenApi};
 #[derive(OpenApi)]
 #[openapi(
     info(
-        title = "Job Application Tracker API",
+        title = "AppliQ API",
         version = "1.0.0",
         description = "A seamless application to help you keep track of all your job applications.",
         contact(
@@ -13,7 +13,7 @@ use utoipa::{OpenApi};
         )
     ),
     tags(
-        (name = "Job Application Tracker API", description = "A seamless application to help you keep track of all your job applications")
+        (name = "AppliQ API", description = "A seamless application to help you keep track of all your job applications")
     ),
     paths(
         crate::handlers::user_handler::register_user,

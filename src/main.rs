@@ -1,4 +1,4 @@
-use std::{net::SocketAddr, env};
+use std::{net::SocketAddr};
 use std::sync::Arc;
 use tracing::{error, info};
 
@@ -35,8 +35,11 @@ async fn main() {
     let app = configs::router::app_router(Arc::new(sqlx_pool));
     info!("Application router initialized.");
 
-    let port = env::var("PORT").unwrap_or_else(|_| "3000".to_string());
-    let addr = SocketAddr::from(([0, 0, 0, 0], port.parse::<u16>().unwrap()));
+    let port: u16 = std::env::var("PORT")
+        .unwrap_or_else(|_| "3000".to_string()) // Get the port as a string or default to "3000"
+        .parse() // Parse the port string into a u16
+        .expect("Failed to parse PORT");
+    let addr = SocketAddr::from(([0, 0, 0, 0, 0, 0, 0, 0], port));
 
     info!("Attempting to bind to address: {}", addr);
 
