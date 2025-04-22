@@ -31,15 +31,12 @@ async fn main() {
         .await
         .expect("Could Not Run Migrations");
 
-    let host = env::var("SERVER_HOST").unwrap();
-    let port = env::var("SERVER_PORT").unwrap();
 
     let app = configs::router::app_router(Arc::new(sqlx_pool));
     info!("Application router initialized.");
 
-    let addr: SocketAddr = format!("{}:{}", host, port)
-        .parse()
-        .expect("Invalid address format");
+    let port = env::var("SERVER_PORT").unwrap_or_else(|_| "3000".to_string());
+    let addr = SocketAddr::from(([0, 0, 0, 0], port.parse::<u16>().unwrap()));
 
     info!("Attempting to bind to address: {}", addr);
 
@@ -53,7 +50,7 @@ async fn main() {
         }
     };
 
-    info!("Server is now running on port {}", port);
+    info!("Server is now running on {}", addr);
     if let Err(e) = axum::serve(listener, app).await {
         error!("Server encountered an error: {}", e);
     }
