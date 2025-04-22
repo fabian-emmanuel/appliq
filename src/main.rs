@@ -35,7 +35,7 @@ async fn main() {
     let app = configs::router::app_router(Arc::new(sqlx_pool));
     info!("Application router initialized.");
 
-    let port = env::var("SERVER_PORT").unwrap_or_else(|_| "3000".to_string());
+    let port = env::var("PORT").unwrap_or_else(|_| "3000".to_string());
     let addr = SocketAddr::from(([0, 0, 0, 0], port.parse::<u16>().unwrap()));
 
     info!("Attempting to bind to address: {}", addr);

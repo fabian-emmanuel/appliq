@@ -29,6 +29,6 @@ COPY --from=builder /app/target/release/job-application-tracker .
 COPY ./db ./db
 
 # Expose the Axum port
-EXPOSE 3000
+EXPOSE ${PORT}
 
 CMD ["./job-application-tracker"]
