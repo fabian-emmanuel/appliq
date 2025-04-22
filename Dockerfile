@@ -16,7 +16,8 @@ COPY ./db ./db
 RUN cargo build --release
 
 # Runtime stage
-FROM debian:bullseye-slim
+# Using Debian Bookworm (stable) instead of Bullseye for newer GLIBC
+FROM debian:bookworm-slim
 
 RUN apt-get update && \
     apt-get install -y libpq5 ca-certificates && \
