@@ -21,6 +21,7 @@ pub fn app_router(db_pool: Arc<PgPool>) -> Router {
     let cors = CorsLayer::new()
         .allow_origin(Any)
         .allow_methods(Any)
+        .allow_credentials(true)
         .allow_headers(Any);
 
     let user_repo = Arc::new(UserRepository::new(db_pool.clone()));
