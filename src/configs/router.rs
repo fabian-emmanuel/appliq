@@ -10,20 +10,30 @@ use crate::services::auth_service::AuthService;
 use crate::services::user_service::UserService;
 use axum::routing::{get, post};
 use axum::Router;
+use dotenvy::var;
+use http::header::{ACCEPT, AUTHORIZATION, CONTENT_TYPE};
+use http::Method;
 use sqlx::PgPool;
 use std::sync::Arc;
-use http::header::{ACCEPT, AUTHORIZATION};
-use tower_http::cors::{Any, CorsLayer};
+use tower_http::cors::CorsLayer;
 use utoipa::OpenApi;
 use utoipa_swagger_ui::SwaggerUi;
 
 
 pub fn app_router(db_pool: Arc<PgPool>) -> Router {
+    
+    let frontend_urls = var("FRONTEND_URLS").expect("FRONTEND_URLS must be set");
+    
+    let origins: Vec<_> = frontend_urls
+        .split(',')
+        .map(|url| url.parse().unwrap())
+        .collect();
+
     let cors = CorsLayer::new()
-        .allow_origin(Any)
-        .allow_methods(Any)
+        .allow_origin(origins)
+        .allow_methods([Method::GET, Method::POST, Method::PUT, Method::DELETE])
         .allow_credentials(true)
-        .allow_headers([AUTHORIZATION, ACCEPT]);
+        .allow_headers([AUTHORIZATION, ACCEPT, CONTENT_TYPE]);
 
     let user_repo = Arc::new(UserRepository::new(db_pool.clone()));
     let user_service = Arc::new(UserService::new(user_repo.clone()));
