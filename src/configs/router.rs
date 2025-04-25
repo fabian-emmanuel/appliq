@@ -12,6 +12,7 @@ use axum::routing::{get, post};
 use axum::Router;
 use sqlx::PgPool;
 use std::sync::Arc;
+use http::header::{ACCEPT, AUTHORIZATION};
 use tower_http::cors::{Any, CorsLayer};
 use utoipa::OpenApi;
 use utoipa_swagger_ui::SwaggerUi;
@@ -22,7 +23,7 @@ pub fn app_router(db_pool: Arc<PgPool>) -> Router {
         .allow_origin(Any)
         .allow_methods(Any)
         .allow_credentials(true)
-        .allow_headers(Any);
+        .allow_headers([AUTHORIZATION, ACCEPT]);
 
     let user_repo = Arc::new(UserRepository::new(db_pool.clone()));
     let user_service = Arc::new(UserService::new(user_repo.clone()));
