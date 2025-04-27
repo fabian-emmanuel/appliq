@@ -1,7 +1,7 @@
-use crate::models::application::{
-    Application, ApplicationStatus, ApplicationStatusData, ApplicationsResponse,
+use crate::models::application::{Application, ApplicationStatus};
+use crate::payloads::application::{
+    ApplicationFilter, ApplicationStatusResponse, ApplicationsResponse,
 };
-use crate::payloads::application::ApplicationFilter;
 use crate::payloads::pagination::{
     PaginatedResponse, compute_pagination, count_with_filters, fetch_with_filters,
 };
@@ -112,12 +112,12 @@ impl ApplicationRepository {
         .await?;
 
         // -------- GROUP STATUSES --------
-        let mut status_map: HashMap<i64, Vec<ApplicationStatusData>> = HashMap::new();
+        let mut status_map: HashMap<i64, Vec<ApplicationStatusResponse>> = HashMap::new();
         for status in statuses {
             status_map
                 .entry(status.application_id)
                 .or_default()
-                .push(ApplicationStatusData::from_application_status(&status));
+                .push(ApplicationStatusResponse::from_application_status(&status));
         }
 
         // -------- COMBINE INTO ApplicationsResponse --------

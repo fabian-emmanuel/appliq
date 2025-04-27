@@ -1,9 +1,10 @@
+use crate::enums::application::Status;
 use crate::errors::app_error::{AppError, extract_validation_errors};
-use crate::models::application::{
-    Application, ApplicationData, ApplicationRequest, ApplicationStatus, ApplicationStatusData,
-    ApplicationStatusRequest, ApplicationsResponse,
+use crate::models::application::{Application, ApplicationStatus};
+use crate::payloads::application::{
+    ApplicationFilter, ApplicationRequest, ApplicationStatusRequest, ApplicationStatusResponse,
+    ApplicationsResponse,
 };
-use crate::payloads::application::ApplicationFilter;
 use crate::payloads::pagination::PaginatedResponse;
 use crate::repositories::application_repository::ApplicationRepository;
 use std::sync::Arc;
@@ -22,22 +23,40 @@ impl ApplicationService {
         &self,
         req: ApplicationRequest,
         user_id: i64,
-    ) -> Result<ApplicationData, AppError> {
+    ) -> Result<ApplicationsResponse, AppError> {
         req.validate()
             .map_err(|err| AppError::ValidationError(extract_validation_errors(&err)))?;
 
-        self.application_repo
+        let application = self
+            .application_repo
             .save(Application::from_application_request(&req, user_id))
             .await
-            .map(|application| ApplicationData::from_application(&application))
-            .map_err(|e| AppError::DatabaseError(e.to_string()))
+            .map_err(|e| AppError::DatabaseError(e.to_string()))?;
+
+        let default_status = self
+            .application_repo
+            .save_application_status(ApplicationStatus::new(
+                application.id,
+                Status::Applied,
+                None,
+                None,
+                None,
+                user_id,
+            ))
+            .await
+            .map_err(|e| AppError::DatabaseError(e.to_string()))?;
+
+        Ok(ApplicationsResponse::from_application_and_status(
+            &application,
+            &vec![default_status],
+        ))
     }
 
     pub async fn add_application_status(
         &self,
         user_id: i64,
         req: ApplicationStatusRequest,
-    ) -> Result<ApplicationStatusData, AppError> {
+    ) -> Result<ApplicationStatusResponse, AppError> {
         match self
             .application_repo
             .exists_by_application_id(req.application_id)
@@ -57,7 +76,7 @@ impl ApplicationService {
                 &req, user_id,
             ))
             .await
-            .map(|app_status| ApplicationStatusData::from_application_status(&app_status))
+            .map(|app_status| ApplicationStatusResponse::from_application_status(&app_status))
             .map_err(|e| AppError::DatabaseError(e.to_string()))
     }
 

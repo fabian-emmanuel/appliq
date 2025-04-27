@@ -1,7 +1,8 @@
-use crate::errors::app_error::{extract_validation_errors, AppError};
-use crate::models::user::{User, UserInfo, UserRegistration};
+use crate::errors::app_error::{AppError, extract_validation_errors};
+use crate::models::user::User;
+use crate::payloads::user::{UserInfo, UserRequest};
 use crate::repositories::user_repository::UserRepository;
-use bcrypt::{hash, DEFAULT_COST};
+use bcrypt::{DEFAULT_COST, hash};
 use std::sync::Arc;
 use tracing::error;
 use validator::Validate;
@@ -17,7 +18,7 @@ impl UserService {
 
     pub async fn register_user(
         &self,
-        registration_data: UserRegistration,
+        registration_data: UserRequest,
     ) -> Result<UserInfo, AppError> {
         registration_data
             .validate()
@@ -47,13 +48,13 @@ impl UserService {
         self.user_repo
             .save(new_user)
             .await
-            .map(|user| {
-                UserInfo::from_user(&user) })
+            .map(|user| UserInfo::from_user(&user))
             .map_err(|e| AppError::DatabaseError(e.to_string()))
     }
 
     pub async fn get_user_data(&self, user_id: i64) -> Result<UserInfo, AppError> {
-        let user = self.user_repo
+        let user = self
+            .user_repo
             .get_user_by_id(user_id)
             .await
             .map_err(|err| {
