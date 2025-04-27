@@ -1,14 +1,16 @@
 use serde::{Deserialize, Serialize};
-use sqlx::{Type};
+use sqlx::Type;
 use utoipa::ToSchema;
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, Type, ToSchema)]
 #[sqlx(type_name = "VARCHAR")]
 pub enum Status {
+    Applied,
     Test,
     Interview,
     OfferAwarded,
-    Rejected
+    Rejected,
+    Withdrawn,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, Type, ToSchema)]

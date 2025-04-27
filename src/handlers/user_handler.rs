@@ -1,6 +1,6 @@
 use crate::configs::routes::{USER_DATA, USER_REGISTER};
 use crate::errors::api_error::ApiError;
-use crate::models::user::{UserInfo, UserRegistration};
+use crate::payloads::user::{UserInfo, UserRequest};
 use crate::services::user_service::UserService;
 use crate::utils::api_response::ApiResponse;
 use crate::utils::jwt::Claims;
@@ -14,7 +14,7 @@ pub struct UserHandler {
     pub user_service: Arc<UserService>,
 }
 
-#[utoipa::path(post, path = USER_REGISTER, request_body = UserRegistration,
+#[utoipa::path(post, path = USER_REGISTER, request_body = UserRequest,
     responses(
         (status = 201, description = "User registered successfully", body = ApiResponse<UserInfo>),
         (status = 400, description = "Bad request", body = ApiError),
@@ -27,7 +27,7 @@ pub struct UserHandler {
     description = "Creates a new user account with the provided credentials and user information.")]
 pub async fn register_user(
     State(handler): State<Arc<UserHandler>>,
-    Json(req): Json<UserRegistration>,
+    Json(req): Json<UserRequest>,
 ) -> Result<(StatusCode, Json<ApiResponse<UserInfo>>), (StatusCode, Json<ApiError>)> {
     match handler.user_service.register_user(req).await {
         Ok(user) => Ok((

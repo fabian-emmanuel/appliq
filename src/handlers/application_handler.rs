@@ -1,11 +1,10 @@
 use crate::configs::routes::{ADD_APPLICATION, ADD_APPLICATION_STATUS, GET_APPLICATIONS_FOR_USER};
 use crate::enums::application::Status;
 use crate::errors::api_error::ApiError;
-use crate::models::application::{
-    ApplicationData, ApplicationRequest, ApplicationStatusData, ApplicationStatusRequest,
+use crate::payloads::application::{
+    ApplicationFilter, ApplicationRequest, ApplicationStatusRequest, ApplicationStatusResponse,
     ApplicationsResponse,
 };
-use crate::payloads::application::ApplicationFilter;
 use crate::payloads::pagination::PaginatedResponse;
 use crate::services::application_service::ApplicationService;
 use crate::utils::api_response::ApiResponse;
@@ -22,7 +21,7 @@ pub struct ApplicationHandler {
 
 #[utoipa::path(post, path = ADD_APPLICATION, request_body = ApplicationRequest,
     responses(
-        (status = 201, description = "Application successfully registered", body = ApiResponse<ApplicationData>),
+        (status = 201, description = "Application successfully registered", body = ApiResponse<ApplicationsResponse>),
         (status = 400, description = "Invalid request data", body = ApiError),
         (status = 500, description = "Internal server error", body = ApiError)
     ),
@@ -36,7 +35,7 @@ pub async fn register_application(
     State(handler): State<Arc<ApplicationHandler>>,
     claims: Claims,
     Json(req): Json<ApplicationRequest>,
-) -> Result<(StatusCode, Json<ApiResponse<ApplicationData>>), (StatusCode, Json<ApiError>)> {
+) -> Result<(StatusCode, Json<ApiResponse<ApplicationsResponse>>), (StatusCode, Json<ApiError>)> {
     match handler
         .application_service
         .create_application(req, claims.subject)
@@ -61,7 +60,7 @@ pub async fn register_application(
 
 #[utoipa::path(post, path = ADD_APPLICATION_STATUS, request_body = ApplicationStatusRequest,
     responses(
-        (status = 200, description = "Status successfully added", body = ApiResponse<ApplicationStatusData>),
+        (status = 200, description = "Status successfully added", body = ApiResponse<ApplicationStatusResponse>),
         (status = 400, description = "Invalid request data", body = ApiError),
         (status = 404, description = "Application not found", body = ApiError),
         (status = 500, description = "Internal server error", body = ApiError)
@@ -76,7 +75,8 @@ pub async fn add_application_status(
     State(handler): State<Arc<ApplicationHandler>>,
     claims: Claims,
     Json(req): Json<ApplicationStatusRequest>,
-) -> Result<(StatusCode, Json<ApiResponse<ApplicationStatusData>>), (StatusCode, Json<ApiError>)> {
+) -> Result<(StatusCode, Json<ApiResponse<ApplicationStatusResponse>>), (StatusCode, Json<ApiError>)>
+{
     match handler
         .application_service
         .add_application_status(claims.subject, req)
@@ -121,21 +121,14 @@ pub async fn fetch_applications_for_user_with_filters(
     State(handler): State<Arc<ApplicationHandler>>,
     claims: Claims,
     Query(filter): Query<ApplicationFilter>,
-) -> Result<(
-    StatusCode,
-    Json<PaginatedResponse<ApplicationsResponse>>,
-    ),
-    (StatusCode, Json<ApiError>),
-> {
+) -> Result<(StatusCode, Json<PaginatedResponse<ApplicationsResponse>>), (StatusCode, Json<ApiError>)>
+{
     match handler
         .application_service
         .fetch_applications_for_user_with_filters(claims.subject, filter)
         .await
     {
-        Ok(applications) => Ok((
-            StatusCode::OK,
-            Json(applications),
-        )),
+        Ok(applications) => Ok((StatusCode::OK, Json(applications))),
 
         Err(err) => {
             let api_error = err.to_api_error();
