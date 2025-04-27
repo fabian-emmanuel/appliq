@@ -131,7 +131,7 @@ impl ApplicationRepository {
                 application_type: app.application_type,
                 created_at: app.created_at,
                 created_by: app.created_by,
-                stages: status_map.remove(&app.id).unwrap_or_else(Vec::new),
+                status_history: status_map.remove(&app.id).unwrap_or_else(Vec::new),
             })
             .collect();
         let page_size = data.len() as i64;
