@@ -10,7 +10,7 @@ pub struct LoginRequest {
 
     pub(crate) password: String,
 
-    #[serde(default)]
+    #[serde(default, rename = "rememberMe")]
     pub(crate) remember_me: bool,
 
 }

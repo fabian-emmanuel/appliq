@@ -180,11 +180,11 @@ impl ApplicationRepository {
                 .push(")");
         }
 
-        if let Some(start) = filter.start_date {
+        if let Some(start) = filter.from {
             builder.push(" AND created_at >= ").push_bind(start);
         }
 
-        if let Some(end) = filter.end_date {
+        if let Some(end) = filter.to {
             builder.push(" AND created_at <= ").push_bind(end);
         }
 

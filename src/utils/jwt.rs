@@ -23,9 +23,13 @@ struct JwtConfig {
 
 #[derive(Serialize, Deserialize, ToSchema)]
 pub struct Token {
+    #[serde(rename = "accessToken")]
     access_token: String,
+    #[serde(rename = "expiresIn")]
     expires_in: i64,
+    #[serde(rename = "refreshToken")]
     refresh_token: String,
+    #[serde(rename = "refreshTokenExpiresIn")]
     refresh_expires_in: i64,
 }
 
