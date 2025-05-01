@@ -9,8 +9,8 @@ use validator::Validate;
 pub struct ApplicationFilter {
     pub search: Option<String>,
     pub status: Option<Status>,
-    pub start_date: Option<DateTime<Utc>>,
-    pub end_date: Option<DateTime<Utc>>,
+    pub from: Option<DateTime<Utc>>,
+    pub to: Option<DateTime<Utc>>,
     pub page: Option<i64>,
     pub size: Option<i64>,
 }
@@ -25,6 +25,7 @@ pub struct ApplicationRequest {
 
     pub website: Option<String>,
 
+    #[serde(rename = "applicationType")]
     pub application_type: Option<ApplicationType>,
 }
 
@@ -34,9 +35,13 @@ pub struct ApplicationsResponse {
     pub company: String,
     pub position: String,
     pub website: Option<String>,
+    #[serde(rename = "applicationType")]
     pub application_type: Option<ApplicationType>,
+    #[serde(rename = "createdAt")]
     pub created_at: DateTime<Local>,
+    #[serde(rename = "createdBy")]
     pub created_by: i64,
+    #[serde(rename = "statusHistory")]
     pub status_history: Vec<ApplicationStatusResponse>,
 }
 
@@ -64,11 +69,17 @@ impl ApplicationsResponse {
 #[derive(Serialize, Deserialize, ToSchema)]
 pub struct ApplicationStatusResponse {
     pub id: i64,
+    #[serde(rename = "applicationId")]
     pub application_id: i64,
+    #[serde(rename = "createdBy")]
     pub created_by: i64,
+    #[serde(rename = "statusType")]
     pub status_type: Status,
+    #[serde(rename = "createdAt")]
     pub created_at: DateTime<Local>,
+    #[serde(rename = "testType")]
     pub test_type: Option<TestType>,
+    #[serde(rename = "interviewType")]
     pub interview_type: Option<InterviewType>,
     pub notes: Option<String>,
 }
@@ -90,9 +101,13 @@ impl ApplicationStatusResponse {
 
 #[derive(Validate, Deserialize, ToSchema)]
 pub struct ApplicationStatusRequest {
+    #[serde(rename = "applicationId")]
     pub application_id: i64,
+    #[serde(rename = "statusType")]
     pub status_type: Status,
+    #[serde(rename = "testType")]
     pub test_type: Option<TestType>,
+    #[serde(rename = "interviewType")]
     pub interview_type: Option<InterviewType>,
     pub notes: Option<String>,
 }
