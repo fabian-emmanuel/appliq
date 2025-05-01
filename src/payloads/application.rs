@@ -37,6 +37,7 @@ pub struct ApplicationsResponse {
     pub application_type: Option<ApplicationType>,
     pub created_at: DateTime<Local>,
     pub created_by: i64,
+    pub status: Status,
     pub status_history: Vec<ApplicationStatusResponse>,
 }
 
@@ -53,6 +54,7 @@ impl ApplicationsResponse {
             application_type: application.application_type.clone(),
             created_at: application.created_at.clone(),
             created_by: application.created_by.clone(),
+            status: statuses.last().unwrap().status_type.clone(),
             status_history: statuses
                 .iter()
                 .map(|status| ApplicationStatusResponse::from_application_status(status))
