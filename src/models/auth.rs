@@ -9,5 +9,9 @@ pub struct LoginRequest {
     pub(crate) email: String,
 
     pub(crate) password: String,
+
+    #[serde(default)]
+    pub(crate) remember_me: bool,
+
 }
 
