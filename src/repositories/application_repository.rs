@@ -105,6 +105,7 @@ impl ApplicationRepository {
         SELECT *
         FROM application_statuses
         WHERE application_id = ANY($1)
+        ORDER BY created_at ASC
         "#,
         )
         .bind(&application_ids)
@@ -131,6 +132,11 @@ impl ApplicationRepository {
                 application_type: app.application_type,
                 created_at: app.created_at,
                 created_by: app.created_by,
+                status: status_map
+                    .get(&app.id)
+                    .and_then(|statuses| statuses.last())
+                    .map(|s| s.status_type.clone())
+                    .unwrap(),
                 status_history: status_map.remove(&app.id).unwrap_or_else(Vec::new),
             })
             .collect();
