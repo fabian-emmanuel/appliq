@@ -1,5 +1,5 @@
 use crate::errors::app_error::{AppError, extract_validation_errors};
-use crate::models::auth::LoginRequest;
+use crate::payloads::auth::LoginRequest;
 use crate::repositories::user_repository::UserRepository;
 use crate::utils::jwt::{Token, create_jwt};
 use bcrypt::verify;
