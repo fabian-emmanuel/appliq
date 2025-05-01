@@ -42,6 +42,6 @@ impl AuthService {
             return Err(AppError::BadRequest(String::from(INVALID_CREDENTIALS)));
         }
 
-        Ok(create_jwt(&user.id, &user.role))
+        Ok(create_jwt(&user.id, &user.role, req.remember_me))
     }
 }
