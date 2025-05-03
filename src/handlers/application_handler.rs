@@ -102,8 +102,8 @@ pub async fn add_application_status(
 #[utoipa::path(get, path = GET_APPLICATIONS_FOR_USER, params(
         ("search" = Option<String>, Query, description = "Search by company or position"),
         ("status" = Option<Status>, Query, description = "Filter by application status"),
-        ("start_date" = Option<DateTime<Utc>>, Query, description = "Filter from this date (inclusive)"),
-        ("end_date" = Option<DateTime<Utc>>, Query, description = "Filter until this date (inclusive)"),
+        ("from" = Option<DateTime<Utc>>, Query, description = "Filter from this date (inclusive)"),
+        ("to" = Option<DateTime<Utc>>, Query, description = "Filter to this date (inclusive)"),
         ("page" = Option<i64>, Query, description = "Page number"),
         ("size" = Option<i64>, Query, description = "Page size")
     ),

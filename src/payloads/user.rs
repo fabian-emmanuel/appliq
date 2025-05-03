@@ -7,9 +7,11 @@ use validator::Validate;
 
 #[derive(Validate, Deserialize, ToSchema)]
 pub struct UserRequest {
+    #[serde(rename = "firstName")]
     #[validate(length(min = 1, message = "First name cannot be empty"))]
     pub first_name: String,
 
+    #[serde(rename = "lastName")]
     #[validate(length(min = 1, message = "Last name cannot be empty"))]
     pub last_name: String,
 

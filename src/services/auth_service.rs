@@ -1,5 +1,5 @@
 use crate::errors::app_error::{AppError, extract_validation_errors};
-use crate::models::auth::LoginRequest;
+use crate::payloads::auth::LoginRequest;
 use crate::repositories::user_repository::UserRepository;
 use crate::utils::jwt::{Token, create_jwt};
 use bcrypt::verify;
@@ -42,6 +42,6 @@ impl AuthService {
             return Err(AppError::BadRequest(String::from(INVALID_CREDENTIALS)));
         }
 
-        Ok(create_jwt(&user.id, &user.role))
+        Ok(create_jwt(&user.id, &user.role, req.remember_me))
     }
 }

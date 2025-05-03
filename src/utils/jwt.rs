@@ -1,9 +1,9 @@
+use crate::enums::roles::Role;
 use chrono::{Duration, Utc};
-use jsonwebtoken::{Algorithm, DecodingKey, EncodingKey, Header, Validation, decode, encode};
+use jsonwebtoken::{decode, encode, Algorithm, DecodingKey, EncodingKey, Header, Validation};
 use serde::{Deserialize, Serialize};
 use std::env;
 use utoipa::ToSchema;
-use crate::enums::roles::Role;
 
 #[derive(Serialize, Deserialize)]
 pub struct Claims {
@@ -15,15 +15,21 @@ pub struct Claims {
 struct JwtConfig {
     secret_key: String,
     expiry: i64,
-    refresh_expiry: i64
+    expiry_for_30_days: i64,
+    refresh_expiry: i64,
+    refresh_expiry_for_30_days: i64
 }
 
 
 #[derive(Serialize, Deserialize, ToSchema)]
 pub struct Token {
+    #[serde(rename = "accessToken")]
     access_token: String,
+    #[serde(rename = "expiresIn")]
     expires_in: i64,
+    #[serde(rename = "refreshToken")]
     refresh_token: String,
+    #[serde(rename = "refreshTokenExpiresIn")]
     refresh_expires_in: i64,
 }
 
@@ -33,21 +39,37 @@ fn get_jwt_config() -> JwtConfig {
         .expect("JWT_EXPIRY_IN_MINUTES must be set")
         .parse()
         .expect("JWT_EXPIRY_IN_MINUTES must be a valid integer");
+    let expiry_for_30_days = env::var("JWT_EXPIRY_FOR_30_DAYS_IN_MINUTES")
+        .expect("JWT_EXPIRY_FOR_30_DAYS_IN_MINUTES must be set")
+        .parse()
+        .expect("JWT_EXPIRY_FOR_30_DAYS_IN_MINUTES must be a valid integer");
     let refresh_expiry = expiry * 24;
+    let refresh_expiry_for_30_days = expiry_for_30_days * 24;
 
-    JwtConfig { secret_key, expiry, refresh_expiry }
+    JwtConfig { secret_key, expiry, refresh_expiry, expiry_for_30_days, refresh_expiry_for_30_days }
 }
 
-pub fn create_jwt(subject: &i64, role: &Role) -> Token {
+pub fn create_jwt(subject: &i64, role: &Role, remember_me: bool) -> Token {
     let config = get_jwt_config();
 
-    let access_expires_in = config.expiry;
+    let access_expires_in = if !remember_me { 
+        config.expiry
+    } else {
+        config.expiry_for_30_days
+    };
+    
+    
     let access_expiration = Utc::now()
         .checked_add_signed(Duration::minutes(access_expires_in))
         .expect("Valid timestamp")
         .timestamp();
 
-    let refresh_expires_in = config.refresh_expiry;
+    let refresh_expires_in = if !remember_me { 
+        config.refresh_expiry
+    } else {
+        config.refresh_expiry_for_30_days
+    };
+    
     let refresh_expiration = Utc::now()
         .checked_add_signed(Duration::minutes(refresh_expires_in))
         .expect("Valid timestamp")

@@ -1,6 +1,6 @@
 use crate::configs::routes::LOGIN;
 use crate::errors::api_error::ApiError;
-use crate::models::auth::LoginRequest;
+use crate::payloads::auth::LoginRequest;
 use crate::services::auth_service::AuthService;
 use crate::utils::api_response::ApiResponse;
 use crate::utils::jwt::Token;

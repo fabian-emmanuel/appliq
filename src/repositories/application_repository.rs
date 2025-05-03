@@ -105,6 +105,7 @@ impl ApplicationRepository {
         SELECT *
         FROM application_statuses
         WHERE application_id = ANY($1)
+        ORDER BY created_at ASC
         "#,
         )
         .bind(&application_ids)
@@ -131,6 +132,11 @@ impl ApplicationRepository {
                 application_type: app.application_type,
                 created_at: app.created_at,
                 created_by: app.created_by,
+                status: status_map
+                    .get(&app.id)
+                    .and_then(|statuses| statuses.last())
+                    .map(|s| s.status.clone())
+                    .unwrap(),
                 status_history: status_map.remove(&app.id).unwrap_or_else(Vec::new),
             })
             .collect();
@@ -174,11 +180,11 @@ impl ApplicationRepository {
                 .push(")");
         }
 
-        if let Some(start) = filter.start_date {
+        if let Some(start) = filter.from {
             builder.push(" AND created_at >= ").push_bind(start);
         }
 
-        if let Some(end) = filter.end_date {
+        if let Some(end) = filter.to {
             builder.push(" AND created_at <= ").push_bind(end);
         }
 
