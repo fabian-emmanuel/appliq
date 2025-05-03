@@ -135,7 +135,7 @@ impl ApplicationRepository {
                 status: status_map
                     .get(&app.id)
                     .and_then(|statuses| statuses.last())
-                    .map(|s| s.status_type.clone())
+                    .map(|s| s.status.clone())
                     .unwrap(),
                 status_history: status_map.remove(&app.id).unwrap_or_else(Vec::new),
             })
