@@ -75,8 +75,8 @@ pub struct ApplicationStatusResponse {
     pub application_id: i64,
     #[serde(rename = "createdBy")]
     pub created_by: i64,
-    #[serde(rename = "statusType")]
-    pub status_type: Status,
+    #[serde(rename = "status")]
+    pub status: Status,
     #[serde(rename = "createdAt")]
     pub created_at: DateTime<Local>,
     #[serde(rename = "testType")]
@@ -92,7 +92,7 @@ impl ApplicationStatusResponse {
             id: application_status.id.clone(),
             application_id: application_status.application_id.clone(),
             created_by: application_status.created_by.clone(),
-            status_type: application_status.status_type.clone(),
+            status: application_status.status_type.clone(),
             created_at: application_status.created_at.clone(),
             test_type: application_status.test_type.clone(),
             interview_type: application_status.interview_type.clone(),
