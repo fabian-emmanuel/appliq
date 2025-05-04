@@ -2,9 +2,8 @@ use crate::models::application::{Application, ApplicationStatus};
 use crate::payloads::application::{
     ApplicationFilter, ApplicationStatusResponse, ApplicationsResponse,
 };
-use crate::payloads::pagination::{
-    PaginatedResponse, compute_pagination, count_with_filters, fetch_with_filters,
-};
+use crate::payloads::pagination::{build_paginated_response, compute_pagination, count_with_filters, fetch_with_filters};
+use serde_json::Value;
 use sqlx::{PgPool, Postgres, QueryBuilder};
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -79,7 +78,7 @@ impl ApplicationRepository {
         &self,
         created_by: i64,
         filter: ApplicationFilter,
-    ) -> Result<PaginatedResponse<ApplicationsResponse>, sqlx::Error> {
+    ) -> Result<HashMap<String, Value>, sqlx::Error> {
         let total = count_with_filters(
             "SELECT COUNT(*) FROM applications",
             |b| self.apply_application_filters(b, filter.clone(), created_by.clone()),
@@ -140,17 +139,9 @@ impl ApplicationRepository {
                 status_history: status_map.remove(&app.id).unwrap_or_else(Vec::new),
             })
             .collect();
-        let page_size = data.len() as i64;
 
         // -------- RETURN PAGINATED RESULT --------
-        Ok(PaginatedResponse {
-            data,
-            total,
-            total_pages,
-            page,
-            size,
-            page_size,
-        })
+        Ok(build_paginated_response(data, page, total, total_pages, "applications"))
     }
 
     pub fn apply_application_filters<'a>(

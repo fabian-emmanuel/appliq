@@ -5,14 +5,14 @@ use crate::payloads::application::{
     ApplicationFilter, ApplicationRequest, ApplicationStatusRequest, ApplicationStatusResponse,
     ApplicationsResponse,
 };
-use crate::payloads::pagination::PaginatedResponse;
 use crate::services::application_service::ApplicationService;
 use crate::utils::api_response::ApiResponse;
 use crate::utils::jwt::Claims;
-use axum::Json;
 use axum::extract::{Query, State};
+use axum::Json;
 use axum_macros::debug_handler;
 use http::StatusCode;
+use std::collections::HashMap;
 use std::sync::Arc;
 
 pub struct ApplicationHandler {
@@ -108,7 +108,7 @@ pub async fn add_application_status(
         ("size" = Option<i64>, Query, description = "Page size")
     ),
     responses(
-        (status = 200, description = "Applications retrieved", body = PaginatedResponse<ApplicationsResponse>),
+        (status = 200, description = "Applications retrieved", body = HashMap<String, serde_json::Value>),
         (status = 500, description = "Internal server error", body = ApiError)
     ),
     security(
@@ -121,14 +121,14 @@ pub async fn fetch_applications_for_user_with_filters(
     State(handler): State<Arc<ApplicationHandler>>,
     claims: Claims,
     Query(filter): Query<ApplicationFilter>,
-) -> Result<(StatusCode, Json<PaginatedResponse<ApplicationsResponse>>), (StatusCode, Json<ApiError>)>
+) -> Result<(StatusCode, Json<ApiResponse<HashMap<String, serde_json::Value>>>), (StatusCode, Json<ApiError>)>
 {
     match handler
         .application_service
         .fetch_applications_for_user_with_filters(claims.subject, filter)
         .await
     {
-        Ok(applications) => Ok((StatusCode::OK, Json(applications))),
+        Ok(applications) => Ok((StatusCode::OK, Json(ApiResponse::new("Applications retrieved", applications)))),
 
         Err(err) => {
             let api_error = err.to_api_error();

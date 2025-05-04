@@ -1,20 +1,32 @@
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
+use serde_json::Value;
 use sqlx::postgres::PgRow;
 use sqlx::{PgPool, Postgres, QueryBuilder};
-use utoipa::ToSchema;
+use std::collections::HashMap;
 
-#[derive(Serialize, Deserialize, ToSchema)]
-pub struct PaginatedResponse<T> {
-    pub data: Vec<T>,
-    pub total: i64,
+pub fn build_paginated_response<T: Serialize>(
+    items: Vec<T>,
+    page: i64,
+    total: i64,
+    total_pages: i64,
+    key: &str
+) -> HashMap<String, Value> {
+    let size = items.len() as i64;
 
-    #[serde(rename = "totalPages")]
-    pub total_pages: i64,
-    pub page: i64,
-    pub size: i64,
-    
-    #[serde(rename = "pageSize")]
-    pub page_size: i64,
+    // Create pagination map
+    let pagination = serde_json::json!({
+        "total": total,
+        "size": size,
+        "page": page,
+        "totalPages": total_pages
+    });
+
+    // Create the final response map
+    let mut data = HashMap::new();
+    data.insert(key.to_string(), serde_json::to_value(items).unwrap_or_default());
+    data.insert("pagination".to_string(), pagination);
+
+    data
 }
 
 pub fn compute_pagination(page: Option<i64>, size: Option<i64>, total: i64) -> (i64, i64, i64, i64) {

@@ -1,12 +1,13 @@
 use crate::enums::application::Status;
-use crate::errors::app_error::{AppError, extract_validation_errors};
+use crate::errors::app_error::{extract_validation_errors, AppError};
 use crate::models::application::{Application, ApplicationStatus};
 use crate::payloads::application::{
     ApplicationFilter, ApplicationRequest, ApplicationStatusRequest, ApplicationStatusResponse,
     ApplicationsResponse,
 };
-use crate::payloads::pagination::PaginatedResponse;
 use crate::repositories::application_repository::ApplicationRepository;
+use serde_json::Value;
+use std::collections::HashMap;
 use std::sync::Arc;
 use validator::Validate;
 
@@ -84,7 +85,7 @@ impl ApplicationService {
         &self,
         created_by: i64,
         filter: ApplicationFilter,
-    ) -> Result<PaginatedResponse<ApplicationsResponse>, AppError> {
+    ) -> Result<HashMap<String, Value>, AppError> {
         self.application_repo
             .find_applications_by_user_with_filters(created_by, filter)
             .await
