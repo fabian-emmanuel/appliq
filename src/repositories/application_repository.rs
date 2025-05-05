@@ -166,8 +166,14 @@ impl ApplicationRepository {
 
         if let Some(status) = filter.status {
             builder
-                .push(" AND id IN (SELECT application_id FROM application_statuses WHERE status_type = ")
+                .push(" AND id IN (")
+                .push("SELECT application_id FROM application_statuses AS s1 ")
+                .push("WHERE status_type = ")
                 .push_bind(status)
+                .push(" AND created_at = (")
+                .push("SELECT MAX(created_at) FROM application_statuses AS s2 ")
+                .push("WHERE s2.application_id = s1.application_id")
+                .push(")")
                 .push(")");
         }
 

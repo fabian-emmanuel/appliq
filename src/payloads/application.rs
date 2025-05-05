@@ -105,7 +105,7 @@ impl ApplicationStatusResponse {
 pub struct ApplicationStatusRequest {
     #[serde(rename = "applicationId")]
     pub application_id: i64,
-    #[serde(rename = "statusType")]
+    #[serde(rename = "status")]
     pub status_type: Status,
     #[serde(rename = "testType")]
     pub test_type: Option<TestType>,
