@@ -27,12 +27,24 @@ pub struct UserRequest {
 #[derive(Serialize, Deserialize, ToSchema)]
 pub struct UserInfo {
     pub id: i64,
+    
+    #[serde(rename = "firstName")]
     pub first_name: String,
+    
+    #[serde(rename = "lastName")]
     pub last_name: String,
+    
     pub email: String,
+    
     pub role: Role,
+    
+    #[serde(rename = "createdAt")]   
     pub created_at: DateTime<Local>,
+
+    #[serde(rename = "lastLoginAt")]
     pub last_login_at: Option<DateTime<Local>>,
+
+    #[serde(rename = "isVerified")]
     pub is_verified: bool,
 }
 
