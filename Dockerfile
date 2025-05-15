@@ -1,5 +1,5 @@
 # Build stage
-FROM rustlang/rust:nightly as builder
+FROM rustlang/rust:nightly AS builder
 
 WORKDIR /app
 
@@ -11,6 +11,8 @@ COPY Cargo.toml ./
 COPY ./src ./src
 # Copy the migrations directory
 COPY ./db ./db
+# Copy email templates
+COPY ./resources ./resources
 
 # Build the application
 RUN cargo build --release

@@ -12,8 +12,8 @@ pub struct UserService {
 }
 
 impl UserService {
-    pub fn new(user_repo: Arc<UserRepository>) -> Self {
-        Self { user_repo }
+    pub fn new(user_repo: Arc<UserRepository>) -> Arc<Self> {
+        Arc::new(Self { user_repo })
     }
 
     pub async fn register_user(

@@ -33,6 +33,10 @@ pub enum AppError {
 
     #[error("Authentication error: {0}")]
     InvalidToken(String),
+
+    #[error("Email error: {0}")]
+    EmailError(String),
+
 }
 
 impl AppError {
@@ -73,6 +77,10 @@ impl AppError {
             AppError::InvalidToken(msg) => ApiError {
                 status_code: StatusCode::UNAUTHORIZED.as_u16(),
                 message: format!("Invalid Authorization Token: {}", msg),
+            },
+            AppError::EmailError(msg) => ApiError {
+                status_code: StatusCode::INTERNAL_SERVER_ERROR.as_u16(),
+                message: format!("Email error: {}", msg),
             },
         }
     }

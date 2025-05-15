@@ -1,4 +1,4 @@
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 use validator::Validate;
 
@@ -15,3 +15,20 @@ pub struct LoginRequest {
 
 }
 
+#[derive(Debug, Serialize, Deserialize, Validate, ToSchema)]
+pub struct ForgotPasswordRequest {
+    #[validate(email(message = "Invalid email format"))]
+    pub email: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Validate, ToSchema)]
+pub struct ResetPasswordRequest {
+    #[validate(length(min = 8, message = "Password must be at least 8 characters long"))]
+    pub password: String,
+
+    #[serde(rename = "confirmPassword")]
+    #[validate(must_match(other = "password", message = "Passwords do not match"))]
+    pub confirm_password: String,
+
+    pub token: String,
+}
