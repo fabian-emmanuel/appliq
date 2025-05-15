@@ -22,7 +22,7 @@ struct JwtConfig {
 
 
 #[derive(Serialize, Deserialize, ToSchema)]
-pub struct Token {
+pub struct JwtToken {
     #[serde(rename = "accessToken")]
     access_token: String,
     #[serde(rename = "expiresIn")]
@@ -49,7 +49,7 @@ fn get_jwt_config() -> JwtConfig {
     JwtConfig { secret_key, expiry, refresh_expiry, expiry_for_30_days, refresh_expiry_for_30_days }
 }
 
-pub fn create_jwt(subject: &i64, role: &Role, remember_me: bool) -> Token {
+pub fn create_jwt(subject: &i64, role: &Role, remember_me: bool) -> JwtToken {
     let config = get_jwt_config();
 
     let access_expires_in = if !remember_me { 
@@ -96,7 +96,7 @@ pub fn create_jwt(subject: &i64, role: &Role, remember_me: bool) -> Token {
     let refresh_token = encode(&header, &refresh_claims, &encoding_key)
         .expect("Error creating refresh token");
 
-    Token {
+    JwtToken {
         access_token,
         expires_in: access_expires_in,
         refresh_token,

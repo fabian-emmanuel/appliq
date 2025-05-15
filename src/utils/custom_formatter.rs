@@ -42,7 +42,14 @@ fn get_level_style(level: tracing::Level) -> impl std::fmt::Display {
 
 
 pub fn init_tracing() {
-    tracing_subscriber::fmt()
+    use tracing_subscriber::{fmt, EnvFilter};
+
+    let filter = EnvFilter::try_from_default_env()
+        .unwrap_or_else(|_| EnvFilter::new("info"));
+
+
+    fmt()
+        .with_env_filter(filter)
         .with_target(true)
         .with_level(true)
         .with_span_events(FmtSpan::NONE)

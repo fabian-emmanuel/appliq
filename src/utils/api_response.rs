@@ -15,3 +15,7 @@ impl<T> ApiResponse<T> {
         }
     }
 }
+
+#[derive(Serialize, Deserialize, ToSchema)]
+pub struct EmptyResponse {}
+

@@ -13,8 +13,8 @@ pub struct ApplicationRepository {
 }
 
 impl ApplicationRepository {
-    pub fn new(pool: Arc<PgPool>) -> Self {
-        Self { pool }
+    pub fn new(pool: Arc<PgPool>) -> Arc<Self> {
+        Arc::new(Self { pool })
     }
 
     pub async fn save(&self, application: Application) -> Result<Application, sqlx::Error> {

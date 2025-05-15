@@ -7,8 +7,8 @@ pub struct UserRepository {
 }
 
 impl UserRepository {
-    pub fn new(pool: Arc<PgPool>) -> Self {
-        Self { pool }
+    pub fn new(pool: Arc<PgPool>) -> Arc<Self> {
+        Arc::new(Self { pool })
     }
 
     pub async fn get_user_by_id(&self, user_id: i64) -> Result<User, sqlx::Error> {
@@ -63,4 +63,20 @@ impl UserRepository {
             .fetch_one(self.pool.as_ref())
             .await
     }
+
+    pub async fn update_password(&self, user_id: i64, password_hash: String) -> Result<(), sqlx::Error> {
+        sqlx::query(
+            r#"
+            UPDATE users
+            SET password = $1, updated_at = NOW() AT TIME ZONE 'utc'
+            WHERE id = $2
+            "#,
+        )
+            .bind(password_hash)
+            .bind(user_id)
+            .execute(&*self.pool)
+            .await
+            .map(|_| ())
+    }
+
 }
