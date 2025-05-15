@@ -16,8 +16,8 @@ pub struct ApplicationService {
 }
 
 impl ApplicationService {
-    pub fn new(application_repo: Arc<ApplicationRepository>) -> Self {
-        Self { application_repo }
+    pub fn new(application_repo: Arc<ApplicationRepository>) -> Arc<Self> {
+        Arc::new(Self { application_repo })
     }
 
     pub async fn create_application(
