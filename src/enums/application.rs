@@ -4,6 +4,7 @@ use utoipa::ToSchema;
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, Type, ToSchema)]
 #[sqlx(type_name = "VARCHAR")]
+#[schema(description = "Defines the current status of a job application.")]
 pub enum Status {
     Applied,
     Test,
@@ -15,6 +16,7 @@ pub enum Status {
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, Type, ToSchema)]
 #[sqlx(type_name = "VARCHAR")]
+#[schema(description = "Defines the type of interview conducted.")]
 pub enum InterviewType {
     Hr,
     Behavioural,
@@ -24,6 +26,7 @@ pub enum InterviewType {
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, Type, ToSchema)]
 #[sqlx(type_name = "VARCHAR")]
+#[schema(description = "Defines the type of test administered.")]
 pub enum TestType {
     Technical,
     English,
@@ -32,6 +35,7 @@ pub enum TestType {
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, Type, ToSchema)]
 #[sqlx(type_name = "VARCHAR")]
+#[schema(description = "Defines how the application was submitted.")]
 pub enum ApplicationType {
     Email,
     Website,
