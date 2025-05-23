@@ -102,4 +102,4 @@ fabric.properties
 
 ### dotenv template
 .env
-
+.DS_Store
