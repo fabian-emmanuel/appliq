@@ -4,6 +4,8 @@ use chrono::{DateTime, Local};
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 use validator::Validate;
+use crate::utils::validator_util::PHONE_REGEX;
+
 
 #[derive(Validate, Deserialize, ToSchema)]
 pub struct UserRequest {
@@ -17,6 +19,13 @@ pub struct UserRequest {
 
     #[validate(email(message = "Email must be valid"), length(min = 6))]
     pub email: String,
+
+    #[serde(rename = "phoneNumber")]
+    #[validate(
+        regex(path = "*PHONE_REGEX", message = "Invalid phone number format (e.g., +1234567890123)"),
+        length(min = 14, message = "Phone number must be at least 14 characters")
+    )]
+    pub phone_number: String,
 
     #[validate(length(min = 6, message = "Password must be more than 5 characters long"))]
     pub password: String,
@@ -33,6 +42,9 @@ pub struct UserInfo {
     
     #[serde(rename = "lastName")]
     pub last_name: String,
+
+    #[serde(rename = "phoneNumber")]
+    pub phone_number: Option<String>,
     
     pub email: String,
     
@@ -55,6 +67,7 @@ impl UserInfo {
             first_name: user.first_name.clone(),
             last_name: user.last_name.clone(),
             email: user.email.clone(),
+            phone_number: user.phone_number.clone(),
             role: user.role.clone(),
             created_at: user.created_at.clone(),
             last_login_at: user.last_login_at.clone(),
