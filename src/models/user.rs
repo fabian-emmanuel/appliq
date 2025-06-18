@@ -10,6 +10,7 @@ pub struct User {
     pub first_name: String,
     pub last_name: String,
     pub email: String,
+    pub phone_number: Option<String>,
 
     #[serde(skip_serializing)]
     pub password: String,
@@ -35,6 +36,7 @@ impl User {
         first_name: String,
         last_name: String,
         email: String,
+        phone_number: Option<String>,
         password: String,
         role: Option<Role>,
     ) -> Self {
@@ -45,6 +47,7 @@ impl User {
             last_name,
             email,
             password,
+            phone_number,
             role: role.unwrap_or_else(|| Role::User),
             created_at: now,
             updated_at: now,

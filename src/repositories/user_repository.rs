@@ -21,7 +21,7 @@ impl UserRepository {
     pub async fn save(&self, user: User) -> Result<User, sqlx::Error> {
         sqlx::query_as::<_, User>(
             r#"
-        INSERT INTO users (first_name, last_name, email, password, role, created_at, updated_at, deleted_at, deleted, is_verified, last_login_at, failed_login_attempts)
+        INSERT INTO users (first_name, last_name, email, password, role, created_at, updated_at, deleted_at, deleted, is_verified, last_login_at, failed_login_attempts, phone_number)
         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
         RETURNING *
         "#,
@@ -38,6 +38,7 @@ impl UserRepository {
             .bind(&user.is_verified)
             .bind(&user.last_login_at)
             .bind(&user.failed_login_attempts)
+            .bind(&user.phone_number)
             .fetch_one(self.pool.as_ref())
             .await
 

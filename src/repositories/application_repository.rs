@@ -4,9 +4,10 @@ use crate::payloads::application::{
 };
 use crate::payloads::pagination::{build_paginated_response, compute_pagination, count_with_filters, fetch_with_filters};
 use serde_json::Value;
-use sqlx::{PgPool, Postgres, QueryBuilder};
+use sqlx::{PgPool, Postgres, QueryBuilder, Row};
 use std::collections::HashMap;
 use std::sync::Arc;
+use crate::payloads::dashboard::DashboardCount;
 
 pub struct ApplicationRepository {
     pub pool: Arc<PgPool>,
@@ -186,5 +187,51 @@ impl ApplicationRepository {
         }
 
         builder
+    }
+
+    pub async fn compute_stats(&self, created_by: i64) -> Result<DashboardCount, sqlx::Error> {
+        let row = sqlx::query(r#"
+            WITH latest_statuses AS (
+                SELECT DISTINCT ON (a.id) 
+                    a.id as application_id,
+                    ast.status_type,
+                    ast.test_type,
+                    ast.interview_type
+                FROM applications a
+                LEFT JOIN application_statuses ast ON a.id = ast.application_id
+                WHERE a.created_by = $1 AND a.deleted = false
+                ORDER BY a.id, ast.created_at DESC NULLS LAST
+            ),
+            stats AS (
+                SELECT 
+                    COUNT(*) as total_applications,
+                    COUNT(CASE WHEN status_type = 'Interview' THEN 1 END) as interviews,
+                    COUNT(CASE WHEN status_type = 'Test' THEN 1 END) as tests,
+                    COUNT(CASE WHEN status_type = 'OfferAwarded' THEN 1 END) as offers_awarded,
+                    COUNT(CASE WHEN status_type = 'Withdrawn' THEN 1 END) as withdrawn,
+                    COUNT(CASE WHEN status_type = 'Rejected' THEN 1 END) as rejected
+                FROM latest_statuses
+            )
+            SELECT 
+                total_applications,
+                interviews,
+                tests,
+                offers_awarded,
+                withdrawn,
+                rejected
+            FROM stats
+        "#)
+            .bind(created_by)
+            .fetch_one(self.pool.as_ref())
+            .await?;
+
+        Ok(DashboardCount {
+            total_applications: row.get("total_applications"),
+            interviews: row.get("interviews"),
+            tests: row.get("tests"),
+            offers_awarded: row.get("offers_awarded"),
+            withdrawn: row.get("withdrawn"),
+            rejected: row.get("rejected"),
+        })
     }
 }

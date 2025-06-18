@@ -41,6 +41,7 @@ impl UserService {
             registration_data.first_name,
             registration_data.last_name,
             registration_data.email,
+            Option::from(registration_data.phone_number),
             password_hash,
             registration_data.role,
         );
@@ -71,6 +72,7 @@ impl UserService {
             created_at: user.created_at,
             last_login_at: user.last_login_at,
             is_verified: user.is_verified,
+            phone_number: user.phone_number,
         })
     }
 }
