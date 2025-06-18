@@ -13,7 +13,7 @@ use utoipa::{OpenApi};
         )
     ),
     tags(
-        (name = "AppliQ API", description = "A seamless application to help you keep track of all your job applications")
+        (name = "AppliQ API", description = "A seamless application to help you keep track of all your applications")
     ),
     paths(
         crate::handlers::user_handler::register_user,
@@ -24,6 +24,7 @@ use utoipa::{OpenApi};
         crate::handlers::application_handler::register_application,
         crate::handlers::application_handler::add_application_status,
         crate::handlers::application_handler::fetch_applications_for_user_with_filters,
+        crate::handlers::dashboard_handler::get_dashboard_stats,
     ),
     security(
         ("JWT" = [])

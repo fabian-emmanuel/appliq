@@ -27,3 +27,5 @@ uuid = { version = "1.16.0", features = ["v4"] }
 lettre = "0.11.15"
 log = "0.4.27"
 tera = "1.20.0"
+lazy_static = "1.5.0"
+regex = "1.11.1"

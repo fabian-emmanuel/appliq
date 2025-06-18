@@ -5,6 +5,7 @@ use crate::payloads::application::{
     ApplicationFilter, ApplicationRequest, ApplicationStatusRequest, ApplicationStatusResponse,
     ApplicationsResponse,
 };
+use crate::payloads::dashboard::DashboardCount;
 use crate::repositories::application_repository::ApplicationRepository;
 use serde_json::Value;
 use std::collections::HashMap;
@@ -90,6 +91,14 @@ impl ApplicationService {
             .find_applications_by_user_with_filters(created_by, filter)
             .await
             .map(|paginated_response| paginated_response)
+            .map_err(|e| AppError::DatabaseError(e.to_string()))
+    }
+
+    pub async fn compute_stats(&self, created_by: i64) -> Result<DashboardCount, AppError> {
+        self.application_repo
+            .compute_stats(created_by)
+            .await
+            .map(|stats| stats)
             .map_err(|e| AppError::DatabaseError(e.to_string()))
     }
 }

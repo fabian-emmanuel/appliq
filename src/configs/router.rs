@@ -1,5 +1,5 @@
 use crate::configs::api_doc::ApiDoc;
-use crate::configs::routes::{ADD_APPLICATION, ADD_APPLICATION_STATUS, FORGOT_PASSWORD, GET_APPLICATIONS_FOR_USER, LOGIN, RESET_PASSWORD, USER_DATA, USER_REGISTER};
+use crate::configs::routes::{ADD_APPLICATION, ADD_APPLICATION_STATUS, FORGOT_PASSWORD, GET_APPLICATIONS_FOR_USER, GET_DASHBOARD_STATS, LOGIN, RESET_PASSWORD, USER_DATA, USER_REGISTER};
 use crate::handlers::application_handler::{add_application_status, fetch_applications_for_user_with_filters, register_application, ApplicationHandler};
 use crate::handlers::auth_handler::{forgot_password, login, reset_password, AuthHandler};
 use crate::handlers::user_handler::{get_user_data, register_user, UserHandler};
@@ -18,7 +18,9 @@ use std::sync::Arc;
 use tower_http::cors::CorsLayer;
 use utoipa::OpenApi;
 use utoipa_swagger_ui::SwaggerUi;
+use crate::handlers::dashboard_handler::{get_dashboard_stats, DashboardHandler};
 use crate::repositories::token_repository::TokenRepository;
+use crate::services::dashboard_service::DashboardService;
 use crate::services::email_service::EmailService;
 
 pub fn app_router(db_pool: Arc<PgPool>) -> Router {
@@ -63,17 +65,24 @@ pub fn app_router(db_pool: Arc<PgPool>) -> Router {
 
     let application_repo = ApplicationRepository::new(db_pool.clone());
     let application_service = ApplicationService::new(application_repo);
-    let application_handler = Arc::new(ApplicationHandler {application_service});
+    let application_handler = Arc::new(ApplicationHandler {application_service: application_service.clone()});
     let application_handler_router = Router::new()
         .route(ADD_APPLICATION, post(register_application))
         .route(ADD_APPLICATION_STATUS, post(add_application_status))
         .route(GET_APPLICATIONS_FOR_USER, get(fetch_applications_for_user_with_filters))
         .with_state(application_handler);
+    
+    let dashboard_service = DashboardService::new(application_service);
+    let dashboard_handler = Arc::new(DashboardHandler {dashboard_service});
+    let dashboard_handler_router = Router::new()
+        .route(GET_DASHBOARD_STATS, get(get_dashboard_stats))
+        .with_state(dashboard_handler);
 
     Router::new()
         .merge(user_handler_router)
         .merge(swagger_router)
         .merge(auth_handler_router)
         .merge(application_handler_router)
+        .merge(dashboard_handler_router)
         .layer(cors)
 }

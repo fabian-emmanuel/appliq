@@ -27,6 +27,7 @@ pub enum InterviewType {
 pub enum TestType {
     Technical,
     English,
+    Aptitude,
     Other,
 }
 
