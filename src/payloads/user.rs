@@ -30,6 +30,7 @@ pub struct UserRequest {
     #[validate(length(min = 6, message = "Password must be more than 5 characters long"))]
     pub password: String,
 
+    #[serde(skip)]
     pub role: Option<Role>,
 }
 

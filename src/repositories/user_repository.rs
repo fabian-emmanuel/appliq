@@ -22,7 +22,7 @@ impl UserRepository {
         sqlx::query_as::<_, User>(
             r#"
         INSERT INTO users (first_name, last_name, email, password, role, created_at, updated_at, deleted_at, deleted, is_verified, last_login_at, failed_login_attempts, phone_number)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
         RETURNING *
         "#,
         )
