@@ -43,7 +43,6 @@ impl AuthService {
             })?;
 
         if !is_password_valid {
-            error!("Invalid password for user_id: {}", user.id);
             return Err(AppError::BadRequest(String::from(INVALID_CREDENTIALS)));
         }
 

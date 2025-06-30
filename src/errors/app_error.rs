@@ -44,43 +44,43 @@ impl AppError {
         match self {
             AppError::DatabaseError(msg) => ApiError {
                 status_code: StatusCode::INTERNAL_SERVER_ERROR.as_u16(),
-                message: format!("Database error: {}", msg),
+                message: format!("{}", msg),
             },
             AppError::ValidationError(msg) => ApiError {
                 status_code: StatusCode::BAD_REQUEST.as_u16(),
-                message: format!("Validation error: {}", msg),
+                message: format!("{}", msg),
             },
             AppError::AuthError(msg) => ApiError {
                 status_code: StatusCode::UNAUTHORIZED.as_u16(),
-                message: format!("Authentication error: {}", msg),
+                message: format!("{}", msg),
             },
             AppError::ResourceExists(msg) => ApiError {
                 status_code: StatusCode::CONFLICT.as_u16(),
-                message: format!("Resource already exists: {}", msg),
+                message: format!("{}", msg),
             },
             AppError::BadRequest(msg) => ApiError {
                 status_code: StatusCode::BAD_REQUEST.as_u16(),
-                message: format!("Invalid request: {}", msg),
+                message: format!("{}", msg),
             },
             AppError::ResourceNotFound(msg) => ApiError {
                 status_code: StatusCode::NOT_FOUND.as_u16(),
-                message: format!("Resource not found: {}", msg),
+                message: format!("{}", msg),
             },
             AppError::InternalServerError(msg) => ApiError {
                 status_code: StatusCode::INTERNAL_SERVER_ERROR.as_u16(),
-                message: format!("Internal server error: {}", msg),
+                message: format!("{}", msg),
             },
             AppError::MissingToken(msg) => ApiError {
                 status_code: StatusCode::FORBIDDEN.as_u16(),
-                message: format!("Missing Authorization Token: {}", msg),
+                message: format!("{}", msg),
             },
             AppError::InvalidToken(msg) => ApiError {
                 status_code: StatusCode::UNAUTHORIZED.as_u16(),
-                message: format!("Invalid Authorization Token: {}", msg),
+                message: format!("{}", msg),
             },
             AppError::EmailError(msg) => ApiError {
                 status_code: StatusCode::INTERNAL_SERVER_ERROR.as_u16(),
-                message: format!("Email error: {}", msg),
+                message: format!("{}", msg),
             },
         }
     }
