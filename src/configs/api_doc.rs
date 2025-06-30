@@ -28,6 +28,7 @@ use utoipa::{OpenApi};
         crate::handlers::dashboard_handler::get_dashboard_stats,
         crate::handlers::dashboard_handler::get_success_rate,
         crate::handlers::dashboard_handler::get_chart_data,
+        crate::handlers::dashboard_handler::get_average_response_time,
     ),
     security(
         ("JWT" = [])

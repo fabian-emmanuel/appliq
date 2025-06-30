@@ -32,7 +32,7 @@ pub struct SuccessRate {
 }
 
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, ToSchema)]
 pub struct AverageResponseTime {
     
     pub average: String,

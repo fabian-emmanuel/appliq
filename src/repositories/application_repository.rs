@@ -7,7 +7,8 @@ use serde_json::Value;
 use sqlx::{PgPool, Postgres, QueryBuilder, Row};
 use std::collections::HashMap;
 use std::sync::Arc;
-use crate::payloads::dashboard::{ApplicationTrendsRequest, ApplicationTrendsResponse, DashboardCount, DatesCount, StatusCount, SuccessRate};
+use bigdecimal::{BigDecimal, ToPrimitive};
+use crate::payloads::dashboard::{ApplicationTrendsRequest, ApplicationTrendsResponse, AverageResponseTime, DashboardCount, DatesCount, StatusCount, SuccessRate};
 
 pub struct ApplicationRepository {
     pub pool: Arc<PgPool>,
@@ -348,6 +349,101 @@ impl ApplicationRepository {
         Ok(ApplicationTrendsResponse {
             bar_data,
             line_data,
+        })
+    }
+
+    pub async fn compute_average_response_time(&self, user_id: i64) -> Result<AverageResponseTime, sqlx::Error> {
+        let current_month_avg_days: Option<BigDecimal> = sqlx::query_scalar!(
+            r#"
+            WITH applied_times AS (
+                SELECT
+                    application_id,
+                    created_at AS applied_at
+                FROM application_statuses
+                WHERE status_type = 'Applied'
+            ),
+            response_times AS (
+                SELECT
+                    application_id,
+                    MIN(created_at) AS responded_at
+                FROM application_statuses
+                WHERE status_type IN ('Test', 'Interview')
+                GROUP BY application_id
+            )
+            SELECT
+                FLOOR(AVG(EXTRACT(EPOCH FROM (rt.responded_at - at.applied_at)) / (60 * 60 * 24)))
+            FROM applications a
+            JOIN applied_times at ON a.id = at.application_id
+            JOIN response_times rt ON a.id = rt.application_id
+            WHERE a.created_by = $1
+              AND a.deleted = FALSE
+              AND rt.responded_at >= date_trunc('month', CURRENT_DATE)
+              AND rt.responded_at < date_trunc('month', CURRENT_DATE) + interval '1 month'
+              AND rt.responded_at > at.applied_at
+            "#,
+            user_id
+        )
+        .fetch_one(self.pool.as_ref())
+        .await?;
+
+        let previous_month_avg_days: Option<BigDecimal> = sqlx::query_scalar!(
+            r#"
+            WITH applied_times AS (
+                SELECT
+                    application_id,
+                    created_at AS applied_at
+                FROM application_statuses
+                WHERE status_type = 'Applied'
+            ),
+            response_times AS (
+                SELECT
+                    application_id,
+                    MIN(created_at) AS responded_at
+                FROM application_statuses
+                WHERE status_type IN ('Test', 'Interview')
+                GROUP BY application_id
+            )
+            SELECT
+                FLOOR(AVG(EXTRACT(EPOCH FROM (rt.responded_at - at.applied_at)) / (60 * 60 * 24)))
+            FROM applications a
+            JOIN applied_times at ON a.id = at.application_id
+            JOIN response_times rt ON a.id = rt.application_id
+            WHERE a.created_by = $1
+              AND a.deleted = FALSE
+              AND rt.responded_at >= date_trunc('month', CURRENT_DATE - interval '1 month')
+              AND rt.responded_at < date_trunc('month', CURRENT_DATE)
+              AND rt.responded_at > at.applied_at
+            "#,
+            user_id
+        )
+        .fetch_one(self.pool.as_ref())
+        .await?;
+
+        let current_avg_i64 = current_month_avg_days.and_then(|bd| bd.to_i64());
+        let previous_avg_i64 = previous_month_avg_days.and_then(|bd| bd.to_i64());
+
+        let average = match current_avg_i64 {
+            Some(days) => format!("{} days", days),
+            None => "N/A".to_string(),
+        };
+
+        let (faster_message, compared_to_message) = match (current_avg_i64, previous_avg_i64) {
+            (Some(current), Some(previous)) => {
+                if current < previous {
+                    (format!("{} days faster", previous - current), "Compared to last month".to_string())
+                } else if current > previous {
+                    (format!("{} days slower", current - previous), "Compared to last month".to_string())
+                } else {
+                    ("Same as last month".to_string(), "".to_string())
+                }
+            },
+            _ => ("N/A".to_string(), "".to_string()),
+        };
+
+        Ok(AverageResponseTime {
+            average,
+            faster_message,
+            compared_to_message,
         })
     }
 }
