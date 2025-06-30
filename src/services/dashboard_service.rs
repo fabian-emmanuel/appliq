@@ -1,5 +1,5 @@
 use crate::errors::app_error::AppError;
-use crate::payloads::dashboard::{ApplicationTrendsRequest, ApplicationTrendsResponse, AverageResponseTime, DashboardCount, SuccessRate};
+use crate::payloads::dashboard::{ApplicationTrendsRequest, ApplicationTrendsResponse, AverageResponseTime, DashboardCount, RecentActivitiesResponse, SuccessRate};
 use crate::services::application_service::ApplicationService;
 use std::sync::Arc;
 
@@ -41,6 +41,13 @@ impl DashboardService {
     pub async fn compute_average_response_time(&self, user_id: i64) -> Result<AverageResponseTime, AppError> {
         self.application_service
             .compute_average_response_time(user_id)
+            .await
+            .map_err(AppError::from)
+    }
+
+    pub async fn get_recent_activities(&self, user_id: i64) -> Result<RecentActivitiesResponse, AppError> {
+        self.application_service
+            .get_recent_activities(user_id)
             .await
             .map_err(AppError::from)
     }

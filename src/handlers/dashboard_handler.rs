@@ -1,6 +1,6 @@
-use crate::configs::routes::{GET_AVERAGE_RESPONSE_TIME, GET_CHART_DATA, GET_DASHBOARD_STATS, GET_SUCCESS_RATE};
+use crate::configs::routes::{GET_AVERAGE_RESPONSE_TIME, GET_CHART_DATA, GET_DASHBOARD_STATS, GET_RECENT_ACTIVITIES, GET_SUCCESS_RATE};
 use crate::errors::api_error::ApiError;
-use crate::payloads::dashboard::{ApplicationTrendsRequest, ApplicationTrendsResponse, AverageResponseTime, DashboardCount, SuccessRate};
+use crate::payloads::dashboard::{ApplicationTrendsRequest, ApplicationTrendsResponse, AverageResponseTime, DashboardCount, RecentActivitiesResponse, SuccessRate};
 use crate::services::dashboard_service::DashboardService;
 use crate::utils::api_response::ApiResponse;
 use crate::utils::jwt::Claims;
@@ -145,6 +145,39 @@ pub async fn get_average_response_time(
         Ok(average_response_time) => Ok((
             StatusCode::OK,
             Json(ApiResponse::new("Average response time retrieved.", average_response_time)),
+        )),
+        Err(err) => {
+            let api_error = err.to_api_error();
+            let status_code = StatusCode::from_u16(api_error.status_code)
+                .unwrap_or(StatusCode::INTERNAL_SERVER_ERROR);
+            Err((status_code, Json(api_error)))
+        }
+    }
+}
+
+#[utoipa::path(get, path = GET_RECENT_ACTIVITIES,
+    responses(
+        (status = 200, description = "Recent activities retrieved.", body = ApiResponse<RecentActivitiesResponse>),
+        (status = 500, description = "Internal server error", body = ApiError)
+    ),
+    security(
+        ("bearer_auth" = [])
+    ),
+    tag = "Dashboard Handler",
+    summary = "Get recent activities")]
+#[debug_handler]
+pub async fn get_recent_activities(
+    State(handler): State<Arc<DashboardHandler>>,
+    claims: Claims,
+) -> Result<(StatusCode, Json<ApiResponse<RecentActivitiesResponse>>), (StatusCode, Json<ApiError>)> {
+    match handler
+        .dashboard_service
+        .get_recent_activities(claims.subject)
+        .await
+    {
+        Ok(recent_activities) => Ok((
+            StatusCode::OK,
+            Json(ApiResponse::new("Recent activities retrieved.", recent_activities)),
         )),
         Err(err) => {
             let api_error = err.to_api_error();

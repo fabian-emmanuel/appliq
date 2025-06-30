@@ -16,3 +16,4 @@ pub const GET_DASHBOARD_STATS: &str = "/api/v1/dashboard/stats";
 pub const GET_SUCCESS_RATE: &str = "/api/v1/dashboard/success-rate";
 pub const GET_CHART_DATA: &str = "/api/v1/dashboard/chart-data";
 pub const GET_AVERAGE_RESPONSE_TIME: &str = "/api/v1/dashboard/average-response-time";
+pub const GET_RECENT_ACTIVITIES: &str = "/api/v1/dashboard/recent-activities";
