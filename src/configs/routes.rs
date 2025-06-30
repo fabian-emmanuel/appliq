@@ -13,3 +13,4 @@ pub const ADD_APPLICATION_STATUS: &str = "/api/v1/application/status";
 
 pub const GET_DASHBOARD_STATS: &str = "/api/v1/dashboard/stats";
 pub const GET_SUCCESS_RATE: &str = "/api/v1/dashboard/success-rate";
+pub const GET_CHART_DATA: &str = "/api/v1/dashboard/chart-data";

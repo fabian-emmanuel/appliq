@@ -1,4 +1,6 @@
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
+use sqlx::FromRow;
 use utoipa::ToSchema;
 use crate::enums::application::Status;
 
@@ -42,16 +44,16 @@ pub struct AverageResponseTime {
     pub compared_to_message: String,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, ToSchema)]
 pub struct ApplicationTrendsRequest {
-    #[serde(alias = "startDate")]
-    pub start_date: Option<String>,
-    #[serde(alias = "endDate")]
-    pub end_date: Option<String>,
-    pub statuses: Option<Vec<String>>,
+    #[serde(alias = "from")]
+    pub from: Option<DateTime<Utc>>,
+    #[serde(alias = "to")]
+    pub to: Option<DateTime<Utc>>,
+    pub statuses: Option<Vec<Status>>,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, ToSchema)]
 pub struct ApplicationTrendsResponse {
     #[serde(alias = "bar_data")]
     pub bar_data: Vec<StatusCount>,
@@ -61,15 +63,16 @@ pub struct ApplicationTrendsResponse {
 }
 
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, ToSchema, FromRow)]
 pub struct StatusCount {
     pub status: Status,
     pub count: i64,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, ToSchema, FromRow)]
 pub struct DatesCount {
-    pub date: String,
+    pub status: Status,
+    pub date: DateTime<Utc>,
     pub count: i64,   
 }
 

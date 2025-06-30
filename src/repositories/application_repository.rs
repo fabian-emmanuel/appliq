@@ -7,7 +7,7 @@ use serde_json::Value;
 use sqlx::{PgPool, Postgres, QueryBuilder, Row};
 use std::collections::HashMap;
 use std::sync::Arc;
-use crate::payloads::dashboard::{DashboardCount, SuccessRate};
+use crate::payloads::dashboard::{ApplicationTrendsRequest, ApplicationTrendsResponse, DashboardCount, DatesCount, StatusCount, SuccessRate};
 
 pub struct ApplicationRepository {
     pub pool: Arc<PgPool>,
@@ -281,6 +281,73 @@ impl ApplicationRepository {
         Ok(SuccessRate {
             percentage,
             message: "based on last 30 applications".to_string(),
+        })
+    }
+
+    pub async fn get_chart_data(&self, user_id: i64, req: ApplicationTrendsRequest) -> Result<ApplicationTrendsResponse, sqlx::Error> {
+        let mut bar_query = QueryBuilder::new(
+            r#"
+        WITH latest_statuses AS (
+            SELECT DISTINCT ON (a.id)
+                a.id as application_id,
+                ast.status_type
+            FROM applications a
+            LEFT JOIN application_statuses ast ON a.id = ast.application_id
+            WHERE a.created_by = $1 AND a.deleted = false
+            ORDER BY a.id, ast.created_at DESC NULLS LAST
+        )
+        SELECT status_type as status, COUNT(*) as count
+        FROM latest_statuses
+        GROUP BY status_type
+        "#
+        );
+
+        let mut line_query = QueryBuilder::new(
+            r#"
+        WITH latest_statuses AS (
+            SELECT DISTINCT ON (a.id)
+                a.id as application_id,
+                a.created_at,
+                ast.status_type
+            FROM applications a
+            LEFT JOIN application_statuses ast ON a.id = ast.application_id
+            WHERE a.created_by = $1 AND a.deleted = false
+            ORDER BY a.id, ast.created_at DESC NULLS LAST
+        )
+        SELECT 
+            (DATE(created_at) || ' 00:00:00')::TIMESTAMPTZ as date, 
+            status_type as status,
+            COUNT(*) as count
+        FROM latest_statuses
+        WHERE 1=1
+        "#
+        );
+        
+        if let Some(from) = req.from {
+            line_query.push(" AND created_at >= ").push_bind(from);
+        }
+
+        if let Some(to) = req.to {
+            line_query.push(" AND created_at <= ").push_bind(to);
+        }
+
+        line_query.push(" GROUP BY (DATE(created_at) || ' 00:00:00')::TIMESTAMPTZ, status_type ORDER BY (DATE(created_at) || ' 00:00:00')::TIMESTAMPTZ, status_type");
+
+        let bar_data: Vec<StatusCount> = bar_query
+            .build_query_as()
+            .bind(user_id)
+            .fetch_all(self.pool.as_ref())
+            .await?;
+
+        let line_data: Vec<DatesCount> = line_query
+            .build_query_as()
+            .bind(user_id)
+            .fetch_all(self.pool.as_ref())
+            .await?;
+
+        Ok(ApplicationTrendsResponse {
+            bar_data,
+            line_data,
         })
     }
 }
