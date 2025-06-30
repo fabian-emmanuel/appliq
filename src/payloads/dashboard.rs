@@ -21,7 +21,7 @@ pub struct DashboardCount {
 }
 
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, ToSchema)]
 pub struct SuccessRate {
     
     pub percentage: String,
