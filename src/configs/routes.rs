@@ -1,4 +1,5 @@
 pub const LOGIN: &str = "/api/v1/auth/login";
+pub const LOGOUT: &str = "/api/v1/auth/logout";
 
 pub const USER_DATA: &str = "/api/v1/user/me";
 pub const USER_REGISTER: &str = "/api/v1/user/register";
