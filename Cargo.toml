@@ -5,7 +5,7 @@ edition = "2024"
 
 [dependencies]
 axum = "0.8.3"
-sqlx = { version = "0.8.3", features = ["postgres", "runtime-tokio-rustls", "migrate","chrono"] }
+sqlx = { version = "0.8.3", features = ["postgres", "runtime-tokio-rustls", "migrate","chrono", "bigdecimal"] }
 tokio = { version = "1.44.2", features = ["full"] }
 tracing-subscriber = { version = "0.3.19", features = ["env-filter"] }
 tracing = "0.1.41"
@@ -29,3 +29,4 @@ log = "0.4.27"
 tera = "1.20.0"
 lazy_static = "1.5.0"
 regex = "1.11.1"
+bigdecimal = "0.4.8"
