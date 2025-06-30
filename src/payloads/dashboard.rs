@@ -76,4 +76,22 @@ pub struct DatesCount {
     pub count: i64,   
 }
 
+#[derive(Serialize, Deserialize, ToSchema, FromRow)]
+pub struct RecentActivity {
+    pub id: Option<i64>,
+    pub company: Option<String>,
+    pub position: Option<String>,
+    #[serde(rename = "currentStatus")]
+    pub current_status: Status,
+    #[serde(rename = "previousStatus")]
+    pub previous_status: Option<Status>,
+    #[serde(rename = "lastUpdated")]
+    pub last_updated: Option<DateTime<Utc>>
+}
+
+#[derive(Serialize, Deserialize, ToSchema)]
+pub struct RecentActivitiesResponse {
+    pub activities: Vec<RecentActivity>,
+}
+
 

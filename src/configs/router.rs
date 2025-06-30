@@ -1,5 +1,5 @@
 use crate::configs::api_doc::ApiDoc;
-use crate::configs::routes::{ADD_APPLICATION, ADD_APPLICATION_STATUS, FORGOT_PASSWORD, GET_APPLICATIONS_FOR_USER, GET_CHART_DATA, GET_DASHBOARD_STATS, GET_SUCCESS_RATE, LOGIN, LOGOUT, RESET_PASSWORD, USER_DATA, USER_REGISTER, GET_AVERAGE_RESPONSE_TIME};
+use crate::configs::routes::{ADD_APPLICATION, ADD_APPLICATION_STATUS, FORGOT_PASSWORD, GET_APPLICATIONS_FOR_USER, GET_CHART_DATA, GET_DASHBOARD_STATS, GET_SUCCESS_RATE, LOGIN, LOGOUT, RESET_PASSWORD, USER_DATA, USER_REGISTER, GET_AVERAGE_RESPONSE_TIME, GET_RECENT_ACTIVITIES};
 use crate::handlers::application_handler::{add_application_status, fetch_applications_for_user_with_filters, register_application, ApplicationHandler};
 use crate::handlers::auth_handler::{forgot_password, login, logout, reset_password, AuthHandler};
 use crate::handlers::user_handler::{get_user_data, register_user, UserHandler};
@@ -18,7 +18,7 @@ use std::sync::Arc;
 use tower_http::cors::CorsLayer;
 use utoipa::OpenApi;
 use utoipa_swagger_ui::SwaggerUi;
-use crate::handlers::dashboard_handler::{get_average_response_time, get_chart_data, get_dashboard_stats, get_success_rate, DashboardHandler};
+use crate::handlers::dashboard_handler::{get_average_response_time, get_chart_data, get_dashboard_stats, get_recent_activities, get_success_rate, DashboardHandler};
 use crate::repositories::token_repository::TokenRepository;
 use crate::services::dashboard_service::DashboardService;
 use crate::services::email_service::EmailService;
@@ -80,6 +80,7 @@ pub fn app_router(db_pool: Arc<PgPool>) -> Router {
         .route(GET_SUCCESS_RATE, get(get_success_rate))
         .route(GET_CHART_DATA, get(get_chart_data))
         .route(GET_AVERAGE_RESPONSE_TIME, get(get_average_response_time))
+        .route(GET_RECENT_ACTIVITIES, get(get_recent_activities))
         .with_state(dashboard_handler);
 
     Router::new()
