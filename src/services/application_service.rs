@@ -5,7 +5,7 @@ use crate::payloads::application::{
     ApplicationFilter, ApplicationRequest, ApplicationStatusRequest, ApplicationStatusResponse,
     ApplicationsResponse,
 };
-use crate::payloads::dashboard::DashboardCount;
+use crate::payloads::dashboard::{ApplicationTrendsRequest, ApplicationTrendsResponse, DashboardCount, SuccessRate};
 use crate::repositories::application_repository::ApplicationRepository;
 use serde_json::Value;
 use std::collections::HashMap;
@@ -99,6 +99,20 @@ impl ApplicationService {
             .compute_stats(created_by)
             .await
             .map(|stats| stats)
+            .map_err(|e| AppError::DatabaseError(e.to_string()))
+    }
+
+    pub async fn compute_success_rate(&self, created_by: i64) -> Result<SuccessRate, AppError> {
+        self.application_repo
+            .compute_success_rate(created_by)
+            .await
+            .map_err(|e| AppError::DatabaseError(e.to_string()))
+    }
+
+    pub async fn get_chart_data(&self, user_id: i64, req: ApplicationTrendsRequest) -> Result<ApplicationTrendsResponse, AppError> {
+        self.application_repo
+            .get_chart_data(user_id, req)
+            .await
             .map_err(|e| AppError::DatabaseError(e.to_string()))
     }
 }

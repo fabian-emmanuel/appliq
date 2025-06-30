@@ -1,9 +1,9 @@
-use crate::configs::routes::{LOGIN, FORGOT_PASSWORD, RESET_PASSWORD};
+use crate::configs::routes::{FORGOT_PASSWORD, LOGIN, LOGOUT, RESET_PASSWORD};
 use crate::errors::api_error::ApiError;
 use crate::payloads::auth::{LoginRequest, ForgotPasswordRequest, ResetPasswordRequest};
 use crate::services::auth_service::AuthService;
 use crate::utils::api_response::{ApiResponse, EmptyResponse};
-use crate::utils::jwt::JwtToken;
+use crate::utils::jwt::{Claims, JwtToken};
 use axum::Json;
 use axum::extract::State;
 use http::StatusCode;
@@ -91,6 +91,35 @@ pub async fn reset_password(
         Ok(_) => Ok((
             StatusCode::OK,
             Json(ApiResponse::new("Password has been reset successfully.", ())),
+        )),
+        Err(err) => {
+            let api_error = err.to_api_error();
+            let status_code = StatusCode::from_u16(api_error.status_code)
+                .unwrap_or(StatusCode::INTERNAL_SERVER_ERROR);
+            Err((status_code, Json(api_error)))
+        }
+    }
+}
+
+#[utoipa::path(post, path = LOGOUT,
+    responses(
+        (status = 200, description = "Logout successful", body = ApiResponse<EmptyResponse>),
+        (status = 500, description = "Internal server error", body = ApiError)
+    ),
+    security(
+        ("bearer_auth" = [])
+    ),
+    tag = "Auth Handler",
+    summary = "Logout user")]
+#[debug_handler]
+pub async fn logout(
+    State(handler): State<Arc<AuthHandler>>,
+    claims: Claims,
+) -> Result<(StatusCode, Json<ApiResponse<()>>), (StatusCode, Json<ApiError>)> {
+    match handler.auth_service.logout(claims.subject).await {
+        Ok(_) => Ok((
+            StatusCode::OK,
+            Json(ApiResponse::new("Logout successful.", ())),
         )),
         Err(err) => {
             let api_error = err.to_api_error();

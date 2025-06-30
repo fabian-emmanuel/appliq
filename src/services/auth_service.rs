@@ -49,6 +49,16 @@ impl AuthService {
         Ok(create_jwt(&user.id, &user.role, req.remember_me))
     }
 
+    pub async fn logout(&self, user_id: i64) -> Result<(), AppError> {
+        self.token_repo
+            .invalidate_existing_tokens_for_user(user_id)
+            .await
+            .map_err(|e| {
+                error!("Failed to invalidate tokens for user {}: {:?}", user_id, e);
+                AppError::DatabaseError(e.to_string())
+            })
+    }
+
     pub async fn forgot_password(&self, req: ForgotPasswordRequest) -> Result<(), AppError> {
         req.validate()
             .map_err(|err| AppError::ValidationError(extract_validation_errors(&err)))?;
