@@ -25,6 +25,7 @@ use utoipa::{OpenApi};
         crate::handlers::application_handler::add_application_status,
         crate::handlers::application_handler::fetch_applications_for_user_with_filters,
         crate::handlers::dashboard_handler::get_dashboard_stats,
+        crate::handlers::dashboard_handler::get_success_rate,
     ),
     security(
         ("JWT" = [])

@@ -7,7 +7,7 @@ use serde_json::Value;
 use sqlx::{PgPool, Postgres, QueryBuilder, Row};
 use std::collections::HashMap;
 use std::sync::Arc;
-use crate::payloads::dashboard::DashboardCount;
+use crate::payloads::dashboard::{DashboardCount, SuccessRate};
 
 pub struct ApplicationRepository {
     pub pool: Arc<PgPool>,
@@ -232,6 +232,55 @@ impl ApplicationRepository {
             offers_awarded: row.get("offers_awarded"),
             withdrawn: row.get("withdrawn"),
             rejected: row.get("rejected"),
+        })
+    }
+
+    pub async fn compute_success_rate(&self, created_by: i64) -> Result<SuccessRate, sqlx::Error> {
+        let row = sqlx::query(r#"
+            WITH latest_statuses AS (
+                SELECT DISTINCT ON (a.id)
+                    a.id as application_id,
+                    ast.status_type
+                FROM applications a
+                LEFT JOIN application_statuses ast ON a.id = ast.application_id
+                WHERE a.created_by = $1 AND a.deleted = false
+                ORDER BY a.id, ast.created_at DESC NULLS LAST
+            ),
+            recent_applications AS (
+                SELECT status_type
+                FROM latest_statuses
+                ORDER BY application_id DESC
+                LIMIT 30
+            ),
+            successful_applications AS (
+                SELECT COUNT(*) as count
+                FROM recent_applications
+                WHERE status_type = 'OfferAwarded' OR status_type = 'Interview' OR status_type = 'Test'
+            ),
+            total_applications AS (
+                SELECT COUNT(*) as count
+                FROM recent_applications
+            )
+            SELECT
+                (SELECT count FROM successful_applications) as successful_count,
+                (SELECT count FROM total_applications) as total_count
+        "#)
+            .bind(created_by)
+            .fetch_one(self.pool.as_ref())
+            .await?;
+
+        let successful_count: i64 = row.get("successful_count");
+        let total_count: i64 = row.get("total_count");
+
+        let percentage = if total_count > 0 {
+            format!("{:.2}%", (successful_count as f64 / total_count as f64) * 100.0)
+        } else {
+            "0.00%".to_string()
+        };
+
+        Ok(SuccessRate {
+            percentage,
+            message: "based on last 30 applications".to_string(),
         })
     }
 }

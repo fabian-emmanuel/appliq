@@ -12,3 +12,4 @@ pub const GET_APPLICATIONS_FOR_USER: &str = "/api/v1/application";
 pub const ADD_APPLICATION_STATUS: &str = "/api/v1/application/status";
 
 pub const GET_DASHBOARD_STATS: &str = "/api/v1/dashboard/stats";
+pub const GET_SUCCESS_RATE: &str = "/api/v1/dashboard/success-rate";
