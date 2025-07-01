@@ -1,15 +1,20 @@
+use crate::enums::application::Status;
 use crate::models::application::{Application, ApplicationStatus};
 use crate::payloads::application::{
     ApplicationFilter, ApplicationStatusResponse, ApplicationsResponse,
 };
-use crate::payloads::pagination::{build_paginated_response, compute_pagination, count_with_filters, fetch_with_filters};
+use crate::payloads::dashboard::{
+    ApplicationTrendsRequest, ApplicationTrendsResponse, AverageResponseTime, DashboardCount,
+    DatesCount, RecentActivitiesResponse, RecentActivity, StatusCount, SuccessRate,
+};
+use crate::payloads::pagination::{
+    build_paginated_response, compute_pagination, count_with_filters, fetch_with_filters,
+};
+use bigdecimal::{BigDecimal, ToPrimitive};
 use serde_json::Value;
 use sqlx::{PgPool, Postgres, QueryBuilder, Row};
 use std::collections::HashMap;
 use std::sync::Arc;
-use crate::enums::application::Status;
-use bigdecimal::{BigDecimal, ToPrimitive};
-use crate::payloads::dashboard::{ApplicationTrendsRequest, ApplicationTrendsResponse, AverageResponseTime, DashboardCount, DatesCount, RecentActivitiesResponse, RecentActivity, StatusCount, SuccessRate};
 
 pub struct ApplicationRepository {
     pub pool: Arc<PgPool>,
@@ -144,7 +149,13 @@ impl ApplicationRepository {
             .collect();
 
         // -------- RETURN PAGINATED RESULT --------
-        Ok(build_paginated_response(data, page, total, total_pages, "applications"))
+        Ok(build_paginated_response(
+            data,
+            page,
+            total,
+            total_pages,
+            "applications",
+        ))
     }
 
     pub fn apply_application_filters<'a>(
@@ -192,7 +203,8 @@ impl ApplicationRepository {
     }
 
     pub async fn compute_stats(&self, created_by: i64) -> Result<DashboardCount, sqlx::Error> {
-        let row = sqlx::query(r#"
+        let row = sqlx::query(
+            r#"
             WITH latest_statuses AS (
                 SELECT DISTINCT ON (a.id) 
                     a.id as application_id,
@@ -222,10 +234,11 @@ impl ApplicationRepository {
                 withdrawn,
                 rejected
             FROM stats
-        "#)
-            .bind(created_by)
-            .fetch_one(self.pool.as_ref())
-            .await?;
+        "#,
+        )
+        .bind(created_by)
+        .fetch_one(self.pool.as_ref())
+        .await?;
 
         Ok(DashboardCount {
             total_applications: row.get("total_applications"),
@@ -275,7 +288,10 @@ impl ApplicationRepository {
         let total_count: i64 = row.get("total_count");
 
         let percentage = if total_count > 0 {
-            format!("{:.2}%", (successful_count as f64 / total_count as f64) * 100.0)
+            format!(
+                "{:.2}%",
+                (successful_count as f64 / total_count as f64) * 100.0
+            )
         } else {
             "0.00%".to_string()
         };
@@ -286,7 +302,11 @@ impl ApplicationRepository {
         })
     }
 
-    pub async fn get_chart_data(&self, user_id: i64, req: ApplicationTrendsRequest) -> Result<ApplicationTrendsResponse, sqlx::Error> {
+    pub async fn get_chart_data(
+        &self,
+        user_id: i64,
+        req: ApplicationTrendsRequest,
+    ) -> Result<ApplicationTrendsResponse, sqlx::Error> {
         let mut bar_query = QueryBuilder::new(
             r#"
         WITH latest_statuses AS (
@@ -301,7 +321,7 @@ impl ApplicationRepository {
         SELECT status_type as status, COUNT(*) as count
         FROM latest_statuses
         GROUP BY status_type
-        "#
+        "#,
         );
 
         let mut line_query = QueryBuilder::new(
@@ -322,9 +342,9 @@ impl ApplicationRepository {
             COUNT(*) as count
         FROM latest_statuses
         WHERE 1=1
-        "#
+        "#,
         );
-        
+
         if let Some(from) = req.from {
             line_query.push(" AND created_at >= ").push_bind(from);
         }
@@ -353,8 +373,11 @@ impl ApplicationRepository {
         })
     }
 
-    pub async fn compute_average_response_time(&self, user_id: i64) -> Result<AverageResponseTime, sqlx::Error> {
-        let current_month_avg_days: Option<BigDecimal> = sqlx::query_scalar!(
+    pub async fn compute_average_response_time(
+        &self,
+        user_id: i64,
+    ) -> Result<AverageResponseTime, sqlx::Error> {
+        let current_month_avg_days: Option<BigDecimal> = sqlx::query_scalar(
             r#"
             WITH applied_times AS (
                 SELECT
@@ -382,12 +405,12 @@ impl ApplicationRepository {
               AND rt.responded_at < date_trunc('month', CURRENT_DATE) + interval '1 month'
               AND rt.responded_at > at.applied_at
             "#,
-            user_id
         )
+        .bind(user_id)
         .fetch_one(self.pool.as_ref())
         .await?;
 
-        let previous_month_avg_days: Option<BigDecimal> = sqlx::query_scalar!(
+        let previous_month_avg_days: Option<BigDecimal> = sqlx::query_scalar(
             r#"
             WITH applied_times AS (
                 SELECT
@@ -415,8 +438,8 @@ impl ApplicationRepository {
               AND rt.responded_at < date_trunc('month', CURRENT_DATE)
               AND rt.responded_at > at.applied_at
             "#,
-            user_id
         )
+        .bind(user_id)
         .fetch_one(self.pool.as_ref())
         .await?;
 
@@ -431,13 +454,19 @@ impl ApplicationRepository {
         let (faster_message, compared_to_message) = match (current_avg_i64, previous_avg_i64) {
             (Some(current), Some(previous)) => {
                 if current < previous {
-                    (format!("{} days faster", previous - current), "Compared to last month".to_string())
+                    (
+                        format!("{} days faster", previous - current),
+                        "Compared to last month".to_string(),
+                    )
                 } else if current > previous {
-                    (format!("{} days slower", current - previous), "Compared to last month".to_string())
+                    (
+                        format!("{} days slower", current - previous),
+                        "Compared to last month".to_string(),
+                    )
                 } else {
                     ("Same as last month".to_string(), "".to_string())
                 }
-            },
+            }
             _ => ("N/A".to_string(), "".to_string()),
         };
 
@@ -448,7 +477,10 @@ impl ApplicationRepository {
         })
     }
 
-    pub async fn get_recent_activities(&self, user_id: i64) -> Result<RecentActivitiesResponse, sqlx::Error> {
+    pub async fn get_recent_activities(
+        &self,
+        user_id: i64,
+    ) -> Result<RecentActivitiesResponse, sqlx::Error> {
         let activities = sqlx::query_as!(
             RecentActivity,
             r#"
