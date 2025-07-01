@@ -1,4 +1,3 @@
-use crate::enums::application::Status;
 use crate::models::application::{Application, ApplicationStatus};
 use crate::payloads::application::{
     ApplicationFilter, ApplicationStatusResponse, ApplicationsResponse,
@@ -481,70 +480,55 @@ impl ApplicationRepository {
         &self,
         user_id: i64,
     ) -> Result<RecentActivitiesResponse, sqlx::Error> {
-        let activities = sqlx::query_as!(
-            RecentActivity,
+        let activities = sqlx::query_as::<_, RecentActivity>(
             r#"
-            WITH recent_applications AS (
+        WITH recent_applications AS (
+            SELECT
+                a.id,
+                a.company,
+                a.position,
+                (SELECT status_type FROM application_statuses WHERE application_id = a.id ORDER BY created_at ASC LIMIT 1) as "current_status",
+                NULL as "previous_status",
+                a.created_at as last_updated
+            FROM applications a
+            WHERE a.created_by = $1 AND a.deleted = FALSE
+            ORDER BY a.created_at DESC
+            LIMIT 6
+        ),
+        recent_status_updates AS (
+            SELECT
+                id,
+                company,
+                position,
+                current_status,
+                previous_status,
+                last_updated
+            FROM (
                 SELECT
                     a.id,
                     a.company,
                     a.position,
-                    (SELECT status_type FROM application_statuses WHERE application_id = a.id ORDER BY created_at ASC LIMIT 1) as current_status,
-                    NULL as previous_status,
-                    a.created_at as last_updated
+                    ast.status_type as "current_status",
+                    LAG(ast.status_type) OVER (PARTITION BY ast.application_id ORDER BY ast.created_at ASC) as "previous_status",
+                    ast.created_at as last_updated
                 FROM applications a
+                JOIN application_statuses ast ON a.id = ast.application_id
                 WHERE a.created_by = $1 AND a.deleted = FALSE
-                ORDER BY a.created_at DESC
-                LIMIT 6
-            ),
-            recent_status_updates AS (
-                SELECT
-                    id,
-                    company,
-                    position,
-                    current_status,
-                    previous_status,
-                    last_updated
-                FROM (
-                    SELECT
-                        a.id,
-                        a.company,
-                        a.position,
-                        ast.status_type as current_status,
-                        LAG(ast.status_type) OVER (PARTITION BY ast.application_id ORDER BY ast.created_at ASC) as previous_status,
-                        ast.created_at as last_updated
-                    FROM applications a
-                    JOIN application_statuses ast ON a.id = ast.application_id
-                    WHERE a.created_by = $1 AND a.deleted = FALSE
-                ) AS subquery
-                WHERE previous_status IS NOT NULL
-                ORDER BY last_updated DESC
-                LIMIT 6
-            )
-            SELECT
-                id,
-                company,
-                position,
-                current_status as "current_status!: Status",
-                previous_status as "previous_status?: Status",
-                last_updated
-            FROM recent_applications
-            UNION ALL
-            SELECT
-                id,
-                company,
-                position,
-                current_status as "current_status!: Status",
-                previous_status as "previous_status?: Status",
-                last_updated
-            FROM recent_status_updates
+            ) AS subquery
+            WHERE previous_status IS NOT NULL
             ORDER BY last_updated DESC
             LIMIT 6
-            "#,
-            user_id
         )
-        .fetch_all(self.pool.as_ref())
-        .await?;
+        SELECT * FROM recent_applications
+        UNION ALL
+        SELECT * FROM recent_status_updates
+        ORDER BY last_updated DESC
+        LIMIT 6
+        "#,
+        )
+            .bind(user_id)
+            .fetch_all(self.pool.as_ref())
+            .await?;
 
         Ok(RecentActivitiesResponse { activities })
     }
