@@ -14,6 +14,7 @@ use serde_json::Value;
 use sqlx::{PgPool, Postgres, QueryBuilder, Row};
 use std::collections::HashMap;
 use std::sync::Arc;
+use chrono::Datelike;
 
 pub struct ApplicationRepository {
     pub pool: Arc<PgPool>,
@@ -306,53 +307,78 @@ impl ApplicationRepository {
         user_id: i64,
         req: ApplicationTrendsRequest,
     ) -> Result<ApplicationTrendsResponse, sqlx::Error> {
+        // 1. First query - ensure all status types are returned with count 0 if no applications
         let mut bar_query = QueryBuilder::new(
             r#"
-        WITH latest_statuses AS (
+        WITH all_statuses AS (
+            SELECT unnest(ARRAY['Applied', 'Test', 'Interview', 'OfferAwarded', 'Rejected', 'Withdrawn']::VARCHAR[]) as status_type
+        ),
+        latest_statuses AS (
             SELECT DISTINCT ON (a.id)
                 a.id as application_id,
-                ast.status_type
-            FROM applications a
-            LEFT JOIN application_statuses ast ON a.id = ast.application_id
-            WHERE a.created_by = $1 AND a.deleted = false
-            ORDER BY a.id, ast.created_at DESC NULLS LAST
-        )
-        SELECT status_type as status, COUNT(*) as count
-        FROM latest_statuses
-        GROUP BY status_type
-        "#,
-        );
-
-        let mut line_query = QueryBuilder::new(
-            r#"
-        WITH latest_statuses AS (
-            SELECT DISTINCT ON (a.id)
-                a.id as application_id,
-                a.created_at,
-                ast.status_type
+                ast.status_type as status_type
             FROM applications a
             LEFT JOIN application_statuses ast ON a.id = ast.application_id
             WHERE a.created_by = $1 AND a.deleted = false
             ORDER BY a.id, ast.created_at DESC NULLS LAST
         )
         SELECT 
-            (DATE(created_at) || ' 00:00:00')::TIMESTAMPTZ as date, 
-            status_type as status,
-            COUNT(*) as count
-        FROM latest_statuses
-        WHERE 1=1
+            all_statuses.status_type as status, 
+            COALESCE(COUNT(latest_statuses.application_id), 0) as count
+        FROM all_statuses
+        LEFT JOIN latest_statuses ON all_statuses.status_type = latest_statuses.status_type::VARCHAR
+        GROUP BY all_statuses.status_type
+        ORDER BY all_statuses.status_type
         "#,
         );
 
-        if let Some(from) = req.from {
-            line_query.push(" AND created_at >= ").push_bind(from);
-        }
+        // 2. Second query - ensure all days in range and all statuses are returned
+        let mut line_query = QueryBuilder::new(
+            r#"
+        WITH date_series AS (
+            SELECT 
+                generate_series(
+                    date_trunc('day', COALESCE($2::timestamptz, date_trunc('month', CURRENT_DATE))),
+                    date_trunc('day', COALESCE($3::timestamptz, CURRENT_DATE)),
+                    interval '1 day'
+                )::date as date
+        ),
+        all_statuses AS (
+            SELECT unnest(ARRAY['Applied', 'Test', 'Interview', 'OfferAwarded', 'Rejected', 'Withdrawn']::VARCHAR[]) as status_type
+        ),
+        date_statuses AS (
+            SELECT date_series.date, all_statuses.status_type
+            FROM date_series
+            CROSS JOIN all_statuses
+        ),
+        latest_statuses AS (
+            SELECT DISTINCT ON (a.id)
+                a.id as application_id,
+                date_trunc('day', a.created_at) as created_date,
+                ast.status_type as status_type
+            FROM applications a
+            LEFT JOIN application_statuses ast ON a.id = ast.application_id
+            WHERE a.created_by = $1 AND a.deleted = false
+            ORDER BY a.id, ast.created_at DESC NULLS LAST
+        )
+        SELECT 
+            (date_statuses.date || ' 00:00:00')::TIMESTAMPTZ as date,
+            date_statuses.status_type as status,
+            COALESCE(COUNT(latest_statuses.application_id), 0) as count
+        FROM date_statuses
+        LEFT JOIN latest_statuses ON 
+            date_statuses.date = latest_statuses.created_date AND
+            date_statuses.status_type = latest_statuses.status_type::VARCHAR
+        GROUP BY date_statuses.date, date_statuses.status_type
+        ORDER BY date_statuses.date, date_statuses.status_type
+        "#,
+        );
 
-        if let Some(to) = req.to {
-            line_query.push(" AND created_at <= ").push_bind(to);
-        }
-
-        line_query.push(" GROUP BY (DATE(created_at) || ' 00:00:00')::TIMESTAMPTZ, status_type ORDER BY (DATE(created_at) || ' 00:00:00')::TIMESTAMPTZ, status_type");
+        // Set default date range to current month if not provided
+        let from = req.from.unwrap_or_else(|| {
+            chrono::Local::now().with_day(1).unwrap().naive_local().and_utc()
+        });
+        let to = req.to.unwrap_or_else(|| chrono::Local::now().naive_local().and_utc());
 
         let bar_data: Vec<StatusCount> = bar_query
             .build_query_as()
@@ -363,6 +389,8 @@ impl ApplicationRepository {
         let line_data: Vec<DatesCount> = line_query
             .build_query_as()
             .bind(user_id)
+            .bind(from)
+            .bind(to)
             .fetch_all(self.pool.as_ref())
             .await?;
 
