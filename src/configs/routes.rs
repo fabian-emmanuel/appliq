@@ -9,6 +9,7 @@ pub const RESET_PASSWORD: &str = "/api/v1/auth/reset-password";
 
 pub const ADD_APPLICATION: &str = "/api/v1/application";
 pub const GET_APPLICATIONS_FOR_USER: &str = "/api/v1/application";
+pub const DELETE_APPLICATION: &str = "/api/v1/application/{id}";
 
 pub const ADD_APPLICATION_STATUS: &str = "/api/v1/application/status";
 

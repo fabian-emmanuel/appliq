@@ -129,4 +129,21 @@ impl ApplicationService {
             .await
             .map_err(|e| AppError::DatabaseError(e.to_string()))
     }
+
+    pub async fn delete_application(&self, user_id: i64, application_id: String) -> Result<(), AppError> {
+        match self.application_repo.exists_by_application_id_and_user_id(application_id.clone(), user_id).await {
+            Ok(false) => {
+                return Err(AppError::ResourceNotFound(
+                    "Application does not exist or does not belong to the user.".into(),
+                ));
+            }
+            Ok(true) => (),
+            Err(e) => return Err(AppError::DatabaseError(e.to_string())),
+        }
+
+        self.application_repo
+            .delete_application(application_id)
+            .await
+            .map_err(|e| AppError::DatabaseError(e.to_string()))
+    }
 }

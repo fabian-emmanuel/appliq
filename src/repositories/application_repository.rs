@@ -33,7 +33,7 @@ impl ApplicationRepository {
             )
             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
             RETURNING *
-            "#,
+            "#
         )
         .bind(&application.company)
         .bind(&application.position)
@@ -53,6 +53,18 @@ impl ApplicationRepository {
             "SELECT EXISTS(SELECT 1 FROM applications WHERE id = $1)",
         )
         .bind(application_id)
+        .fetch_one(self.pool.as_ref())
+        .await?;
+
+        Ok(exists)
+    }
+
+    pub async fn exists_by_application_id_and_user_id(&self, application_id: String, user_id: i64) -> Result<bool, sqlx::Error> {
+        let exists = sqlx::query_scalar::<_, bool>(
+            "SELECT EXISTS(SELECT 1 FROM applications WHERE id = $1 AND created_by = $2)",
+        )
+        .bind(application_id.parse::<i64>().unwrap())
+        .bind(user_id)
         .fetch_one(self.pool.as_ref())
         .await?;
 
@@ -531,5 +543,13 @@ impl ApplicationRepository {
             .await?;
 
         Ok(RecentActivitiesResponse { activities })
+    }
+
+    pub async fn delete_application(&self, application_id: String) -> Result<(), sqlx::Error> {
+        sqlx::query("DELETE FROM applications WHERE id = $1")
+            .bind(application_id.parse::<i64>().unwrap())
+            .execute(self.pool.as_ref())
+            .await?;
+        Ok(())
     }
 }
