@@ -1,6 +1,6 @@
 use crate::models::application::{Application, ApplicationStatus};
 use crate::payloads::application::{
-    ApplicationFilter, ApplicationStatusResponse, ApplicationsResponse,
+    ApplicationFilter, ApplicationStatusResponse, ApplicationsResponse, UpdateApplicationRequest,
 };
 use crate::payloads::dashboard::{
     ApplicationTrendsRequest, ApplicationTrendsResponse, AverageResponseTime, DashboardCount,
@@ -10,6 +10,7 @@ use crate::payloads::pagination::{
     build_paginated_response, compute_pagination, count_with_filters, fetch_with_filters,
 };
 use bigdecimal::{BigDecimal, ToPrimitive};
+use chrono::Local;
 use serde_json::Value;
 use sqlx::{PgPool, Postgres, QueryBuilder, Row};
 use std::collections::HashMap;
@@ -59,6 +60,18 @@ impl ApplicationRepository {
         Ok(exists)
     }
 
+    pub async fn exists_by_application_id_and_user_id(&self, application_id: i64, user_id: i64) -> Result<bool, sqlx::Error> {
+        let exists = sqlx::query_scalar::<_, bool>(
+            "SELECT EXISTS(SELECT 1 FROM applications WHERE id = $1 AND created_by = $2)",
+        )
+        .bind(application_id)
+        .bind(user_id)
+        .fetch_one(self.pool.as_ref())
+        .await?;
+
+        Ok(exists)
+    }
+
     pub async fn save_application_status(
         &self,
         application_status: ApplicationStatus,
@@ -68,7 +81,7 @@ impl ApplicationRepository {
             INSERT INTO application_statuses(application_id, status_type, created_by, created_at, test_type, interview_type, notes)
             VALUES ($1, $2, $3, $4, $5, $6, $7)
             RETURNING *
-            "#
+            "#,
         )
             .bind(&application_status.application_id)
             .bind(&application_status.status_type)
@@ -383,14 +396,14 @@ impl ApplicationRepository {
                     application_id,
                     created_at AS applied_at
                 FROM application_statuses
-                WHERE status_type = 'Applied'
+                WHERE status_type = "Applied"
             ),
             response_times AS (
                 SELECT
                     application_id,
                     MIN(created_at) AS responded_at
                 FROM application_statuses
-                WHERE status_type IN ('Test', 'Interview')
+                WHERE status_type IN ("Test", "Interview")
                 GROUP BY application_id
             )
             SELECT
@@ -400,8 +413,8 @@ impl ApplicationRepository {
             JOIN response_times rt ON a.id = rt.application_id
             WHERE a.created_by = $1
               AND a.deleted = FALSE
-              AND rt.responded_at >= date_trunc('month', CURRENT_DATE)
-              AND rt.responded_at < date_trunc('month', CURRENT_DATE) + interval '1 month'
+              AND rt.responded_at >= date_trunc("month", CURRENT_DATE)
+              AND rt.responded_at < date_trunc("month", CURRENT_DATE) + interval '1 month'
               AND rt.responded_at > at.applied_at
             "#,
         )
@@ -416,14 +429,14 @@ impl ApplicationRepository {
                     application_id,
                     created_at AS applied_at
                 FROM application_statuses
-                WHERE status_type = 'Applied'
+                WHERE status_type = "Applied"
             ),
             response_times AS (
                 SELECT
                     application_id,
                     MIN(created_at) AS responded_at
                 FROM application_statuses
-                WHERE status_type IN ('Test', 'Interview')
+                WHERE status_type IN ("Test", "Interview")
                 GROUP BY application_id
             )
             SELECT
@@ -433,8 +446,8 @@ impl ApplicationRepository {
             JOIN response_times rt ON a.id = rt.application_id
             WHERE a.created_by = $1
               AND a.deleted = FALSE
-              AND rt.responded_at >= date_trunc('month', CURRENT_DATE - interval '1 month')
-              AND rt.responded_at < date_trunc('month', CURRENT_DATE)
+              AND rt.responded_at >= date_trunc("month", CURRENT_DATE - interval '1 month')
+              AND rt.responded_at < date_trunc("month", CURRENT_DATE)
               AND rt.responded_at > at.applied_at
             "#,
         )
@@ -531,5 +544,94 @@ impl ApplicationRepository {
             .await?;
 
         Ok(RecentActivitiesResponse { activities })
+    }
+
+    pub async fn find_statuses_by_application_id(
+        &self,
+        application_id: i64,
+    ) -> Result<Vec<ApplicationStatus>, sqlx::Error> {
+        sqlx::query_as::<_, ApplicationStatus>(
+            r#"
+        SELECT *
+        FROM application_statuses
+        WHERE application_id = $1
+        ORDER BY created_at ASC
+        "#,
+        )
+        .bind(application_id)
+        .fetch_all(self.pool.as_ref())
+        .await
+    }
+
+    pub async fn update_application(
+        &self,
+        application_id: i64,
+        req: UpdateApplicationRequest,
+    ) -> Result<Application, sqlx::Error> {
+        let mut query_builder: QueryBuilder<Postgres> =
+            QueryBuilder::new("UPDATE applications SET ");
+
+        let mut needs_comma = false;
+
+        if let Some(company) = req.company {
+            if needs_comma {
+                query_builder.push(", ");
+            }
+            query_builder.push("company = ").push_bind(company);
+            needs_comma = true;
+        }
+        if let Some(position) = req.position {
+            if needs_comma {
+                query_builder.push(", ");
+            }
+            query_builder.push("position = ").push_bind(position);
+            needs_comma = true;
+        }
+        if let Some(website) = req.website {
+            if needs_comma {
+                query_builder.push(", ");
+            }
+            query_builder.push("website = ").push_bind(website);
+            needs_comma = true;
+        }
+        if let Some(application_type) = req.application_type {
+            if needs_comma {
+                query_builder.push(", ");
+            }
+            query_builder.push("application_type = ").push_bind(application_type);
+            needs_comma = true;
+        }
+
+        if needs_comma {
+            query_builder.push(", ");
+        }
+        query_builder.push("updated_at = ").push_bind(Local::now());
+
+        query_builder.push(" WHERE id = ");
+        query_builder.push_bind(application_id);
+        query_builder.push(" RETURNING *");
+
+        query_builder
+            .build_query_as()
+            .fetch_one(self.pool.as_ref())
+            .await
+    }
+
+    pub async fn delete_application(&self, application_id: i64) -> Result<(), sqlx::Error> {
+        let mut tx = self.pool.begin().await?;
+
+        sqlx::query("DELETE FROM application_statuses WHERE application_id = $1")
+            .bind(application_id)
+            .execute(&mut *tx)
+            .await?;
+
+        sqlx::query("DELETE FROM applications WHERE id = $1")
+            .bind(application_id)
+            .execute(&mut *tx)
+            .await?;
+
+        tx.commit().await?;
+
+        Ok(())
     }
 }

@@ -1,2 +1,2 @@
 pub(crate) mod roles;
-pub(crate) mod application;
+pub mod application;
