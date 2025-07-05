@@ -3,13 +3,14 @@ use crate::errors::app_error::{extract_validation_errors, AppError};
 use crate::models::application::{Application, ApplicationStatus};
 use crate::payloads::application::{
     ApplicationFilter, ApplicationRequest, ApplicationStatusRequest, ApplicationStatusResponse,
-    ApplicationsResponse,
+    ApplicationsResponse, UpdateApplicationRequest,
 };
 use crate::payloads::dashboard::{ApplicationTrendsRequest, ApplicationTrendsResponse, AverageResponseTime, DashboardCount, RecentActivitiesResponse, SuccessRate};
 use crate::repositories::application_repository::ApplicationRepository;
 use serde_json::Value;
 use std::collections::HashMap;
 use std::sync::Arc;
+use log::error;
 use validator::Validate;
 
 pub struct ApplicationService {
@@ -130,8 +131,52 @@ impl ApplicationService {
             .map_err(|e| AppError::DatabaseError(e.to_string()))
     }
 
-    pub async fn delete_application(&self, user_id: i64, application_id: String) -> Result<(), AppError> {
-        match self.application_repo.exists_by_application_id_and_user_id(application_id.clone(), user_id).await {
+    pub async fn update_application(
+        &self,
+        user_id: i64,
+        application_id: i64,
+        req: UpdateApplicationRequest,
+    ) -> Result<ApplicationsResponse, AppError> {
+        req.validate()
+            .map_err(|e| AppError::ValidationError(extract_validation_errors(&e)))?;
+
+        match self
+            .application_repo
+            .exists_by_application_id_and_user_id(application_id, user_id)
+            .await
+        {
+            Ok(false) => {
+                return Err(AppError::ResourceNotFound(
+                    "Application does not exist or does not belong to the user.".into(),
+                ));
+            }
+            Ok(true) => (),
+            Err(e) => {
+                error!("Error updating application with id::{} -> {}", application_id,  e.to_string());
+                return Err(AppError::DatabaseError(e.to_string()))
+            },
+        }
+
+        let application = self
+            .application_repo
+            .update_application(application_id, req)
+            .await
+            .map_err(|e| AppError::DatabaseError(e.to_string()))?;
+
+        let statuses = self
+            .application_repo
+            .find_statuses_by_application_id(application.id)
+            .await
+            .map_err(|e| AppError::DatabaseError(e.to_string()))?;
+
+        Ok(ApplicationsResponse::from_application_and_status(
+            &application,
+            &statuses,
+        ))
+    }
+
+    pub async fn delete_application(&self, user_id: i64, application_id: i64) -> Result<(), AppError> {
+        match self.application_repo.exists_by_application_id_and_user_id(application_id, user_id).await {
             Ok(false) => {
                 return Err(AppError::ResourceNotFound(
                     "Application does not exist or does not belong to the user.".into(),
