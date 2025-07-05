@@ -6,15 +6,23 @@ WORKDIR /app
 # Install build dependencies
 RUN apt-get update && apt-get install -y pkg-config libpq-dev
 
-# Copy the project files
+# Copy dependencies manifest
 COPY Cargo.toml ./
-COPY ./src ./src
-# Copy the migrations directory
-COPY ./db ./db
-# Copy email templates
-COPY ./resources ./resources
 
-# Build the application
+# Create a new empty project to cache dependencies
+RUN mkdir src
+RUN echo "fn main() {}" > src/main.rs
+# Build dependencies
+RUN cargo build --release
+
+# Remove the dummy project files that were built
+RUN rm -f target/release/deps/appliq*
+
+# Copy the actual source code and build
+COPY ./src ./src
+COPY ./db ./db
+COPY ./resources ./resources
+RUN touch src/main.rs
 RUN cargo build --release
 
 # Runtime stage
@@ -28,7 +36,9 @@ RUN apt-get update && \
 WORKDIR /app
 COPY --from=builder /app/target/release/appliq .
 # Copy migrations to the final stage as well
-COPY ./db ./db
+COPY --from=builder /app/db ./db
+# Copy email templates to the final stage as well
+COPY --from=builder /app/resources ./resources
 
 # Expose the Axum port
 EXPOSE 80
