@@ -1,4 +1,4 @@
-use crate::configs::routes::RESET_PASSWORD;
+use crate::configs::routes::{RESET_PASSWORD_FE};
 use crate::errors::app_error::AppError;
 use crate::utils::date_util::format_relative_time;
 use chrono::{DateTime, Local};
@@ -71,7 +71,7 @@ impl EmailService {
     ) -> Result<(), AppError> {
         info!("Preparing to send password reset email to {}", to_email);
 
-        let reset_link = format!("{}{}?token={}", self.app_url, RESET_PASSWORD, token);
+        let reset_link = format!("{}{}?token={}", self.app_url, RESET_PASSWORD_FE, token);
         let expires_formatted = format_relative_time(expires_at);
 
         // Build context for the email template
