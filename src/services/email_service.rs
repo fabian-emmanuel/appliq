@@ -10,7 +10,7 @@ use std::env::var;
 use std::sync::Arc;
 use std::time::Duration;
 use tera::{Context, Tera};
-use tracing::{error, info};
+use tracing::{error};
 use crate::utils::email_util::send_email;
 
 pub struct EmailService {
@@ -69,7 +69,6 @@ impl EmailService {
         token: &str,
         expires_at: &DateTime<Local>,
     ) -> Result<(), AppError> {
-        info!("Preparing to send password reset email to {}", to_email);
 
         let reset_link = format!("{}{}?token={}", self.app_url, RESET_PASSWORD_FE, token);
         let expires_formatted = format_relative_time(expires_at);
