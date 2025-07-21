@@ -1,7 +1,7 @@
 # Ultra-optimized Dockerfile - simplified approach
 FROM rustlang/rust:nightly AS planner
 WORKDIR /app
-COPY Cargo.toml Cargo.lock ./
+COPY Cargo.toml  ./
 RUN cargo install cargo-chef && cargo chef prepare --recipe-path recipe.json
 
 FROM rustlang/rust:nightly AS dependencies
@@ -18,7 +18,7 @@ COPY --from=dependencies /app/target target
 COPY --from=dependencies /usr/local/cargo /usr/local/cargo
 RUN apt-get update && apt-get install -y pkg-config libpq-dev libssl-dev && rm -rf /var/lib/apt/lists/*
 
-COPY Cargo.toml Cargo.lock ./
+COPY Cargo.toml ./
 COPY src ./src
 COPY db ./db
 COPY resources ./resources
