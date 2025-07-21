@@ -1,46 +1,61 @@
-# Build stage
+# Ultra-optimized Dockerfile - simplified approach
+FROM rustlang/rust:nightly AS planner
+WORKDIR /app
+COPY Cargo.toml Cargo.lock ./
+RUN cargo install cargo-chef && cargo chef prepare --recipe-path recipe.json
+
+FROM rustlang/rust:nightly AS dependencies
+WORKDIR /app
+RUN cargo install cargo-chef
+RUN apt-get update && apt-get install -y pkg-config libpq-dev libssl-dev && rm -rf /var/lib/apt/lists/*
+COPY --from=planner /app/recipe.json recipe.json
+ENV CARGO_BUILD_JOBS=8
+RUN cargo chef cook --release --recipe-path recipe.json
+
 FROM rustlang/rust:nightly AS builder
-
 WORKDIR /app
+COPY --from=dependencies /app/target target
+COPY --from=dependencies /usr/local/cargo /usr/local/cargo
+RUN apt-get update && apt-get install -y pkg-config libpq-dev libssl-dev && rm -rf /var/lib/apt/lists/*
 
-# Install build dependencies
-RUN apt-get update && apt-get install -y pkg-config libpq-dev
+COPY Cargo.toml Cargo.lock ./
+COPY src ./src
+COPY db ./db
+COPY resources ./resources
 
-# Copy dependencies manifest
-COPY Cargo.toml ./
-
-# Create a new empty project to cache dependencies
-RUN mkdir src
-RUN echo "fn main() {}" > src/main.rs
-# Build dependencies
+ENV CARGO_BUILD_JOBS=8
 RUN cargo build --release
 
-# Remove the dummy project files that were built
-RUN rm -f target/release/deps/appliq*
-
-# Copy the actual source code and build
-COPY ./src ./src
-COPY ./db ./db
-COPY ./resources ./resources
-RUN touch src/main.rs
-RUN cargo build --release
-
-# Runtime stage
-# Using Debian Bookworm (stable) instead of Bullseye for newer GLIBC
+# Simple runtime stage with shell support
 FROM debian:bookworm-slim
-
-RUN apt-get update && \
-    apt-get install -y libpq5 ca-certificates && \
-    rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y libssl3 libpq5 ca-certificates curl && \
+    rm -rf /var/lib/apt/lists/* && \
+    useradd -m -u 1001 appuser
 
 WORKDIR /app
-COPY --from=builder /app/target/release/appliq .
-# Copy migrations to the final stage as well
+
+# Debug: List what we have
+RUN echo "Contents of builder release directory:"
+COPY --from=builder /app/target/release/ /tmp/release/
+RUN ls -la /tmp/release/
+
+# Find and copy the main executable
+RUN find /tmp/release -maxdepth 1 -type f -executable \
+    ! -name "build-script-*" \
+    ! -name ".*" \
+    ! -name "deps" \
+    | head -1 | xargs -I {} cp {} /app/app && \
+    chmod +x /app/app
+
+# Copy runtime files
 COPY --from=builder /app/db ./db
-# Copy email templates to the final stage as well
 COPY --from=builder /app/resources ./resources
+RUN chown -R appuser:appuser /app
 
-# Expose the Axum port
-EXPOSE 80
+USER appuser
+EXPOSE 3000
 
-CMD ["./appliq"]
+HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
+    CMD curl -f http://localhost:3000/health || exit 1
+
+ENTRYPOINT ["/app/app"]
