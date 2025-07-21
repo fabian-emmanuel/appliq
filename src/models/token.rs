@@ -3,7 +3,6 @@ use serde::{Deserialize, Serialize};
 use sqlx::FromRow;
 use std::time::Duration;
 use uuid::Uuid;
-use log::info;
 
 #[derive(Serialize, Deserialize, FromRow, Debug, Clone, PartialEq)]
 pub struct Token {
@@ -18,7 +17,6 @@ pub struct Token {
 impl Token {
     pub fn new(user_id: i64) -> Self {
         let token = Uuid::new_v4().to_string();
-        info!("Generated token: {}", token);
         let now = Local::now();
         let expires_at = now + Duration::from_secs(660); // 10 Min expiration
 

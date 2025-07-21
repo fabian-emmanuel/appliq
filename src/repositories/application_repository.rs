@@ -1,13 +1,20 @@
 use crate::models::application::{Application, ApplicationStatus};
 use crate::payloads::application::{
-    ApplicationFilter, ApplicationStatusResponse, ApplicationsResponse,
+    ApplicationFilter, ApplicationStatusResponse, ApplicationsResponse, UpdateApplicationRequest,
 };
-use crate::payloads::pagination::{build_paginated_response, compute_pagination, count_with_filters, fetch_with_filters};
+use crate::payloads::dashboard::{
+    ApplicationTrendsRequest, ApplicationTrendsResponse, AverageResponseTime, DashboardCount,
+    DatesCount, RecentActivitiesResponse, RecentActivity, StatusCount, SuccessRate,
+};
+use crate::payloads::pagination::{
+    build_paginated_response, compute_pagination, count_with_filters, fetch_with_filters,
+};
+use bigdecimal::{BigDecimal, ToPrimitive};
+use chrono::Local;
 use serde_json::Value;
 use sqlx::{PgPool, Postgres, QueryBuilder, Row};
 use std::collections::HashMap;
 use std::sync::Arc;
-use crate::payloads::dashboard::{ApplicationTrendsRequest, ApplicationTrendsResponse, DashboardCount, DatesCount, StatusCount, SuccessRate};
 
 pub struct ApplicationRepository {
     pub pool: Arc<PgPool>,
@@ -53,6 +60,18 @@ impl ApplicationRepository {
         Ok(exists)
     }
 
+    pub async fn exists_by_application_id_and_user_id(&self, application_id: i64, user_id: i64) -> Result<bool, sqlx::Error> {
+        let exists = sqlx::query_scalar::<_, bool>(
+            "SELECT EXISTS(SELECT 1 FROM applications WHERE id = $1 AND created_by = $2)",
+        )
+        .bind(application_id)
+        .bind(user_id)
+        .fetch_one(self.pool.as_ref())
+        .await?;
+
+        Ok(exists)
+    }
+
     pub async fn save_application_status(
         &self,
         application_status: ApplicationStatus,
@@ -62,7 +81,7 @@ impl ApplicationRepository {
             INSERT INTO application_statuses(application_id, status_type, created_by, created_at, test_type, interview_type, notes)
             VALUES ($1, $2, $3, $4, $5, $6, $7)
             RETURNING *
-            "#
+            "#,
         )
             .bind(&application_status.application_id)
             .bind(&application_status.status_type)
@@ -142,7 +161,13 @@ impl ApplicationRepository {
             .collect();
 
         // -------- RETURN PAGINATED RESULT --------
-        Ok(build_paginated_response(data, page, total, total_pages, "applications"))
+        Ok(build_paginated_response(
+            data,
+            page,
+            total,
+            total_pages,
+            "applications",
+        ))
     }
 
     pub fn apply_application_filters<'a>(
@@ -190,7 +215,8 @@ impl ApplicationRepository {
     }
 
     pub async fn compute_stats(&self, created_by: i64) -> Result<DashboardCount, sqlx::Error> {
-        let row = sqlx::query(r#"
+        let row = sqlx::query(
+            r#"
             WITH latest_statuses AS (
                 SELECT DISTINCT ON (a.id) 
                     a.id as application_id,
@@ -220,10 +246,11 @@ impl ApplicationRepository {
                 withdrawn,
                 rejected
             FROM stats
-        "#)
-            .bind(created_by)
-            .fetch_one(self.pool.as_ref())
-            .await?;
+        "#,
+        )
+        .bind(created_by)
+        .fetch_one(self.pool.as_ref())
+        .await?;
 
         Ok(DashboardCount {
             total_applications: row.get("total_applications"),
@@ -273,7 +300,10 @@ impl ApplicationRepository {
         let total_count: i64 = row.get("total_count");
 
         let percentage = if total_count > 0 {
-            format!("{:.2}%", (successful_count as f64 / total_count as f64) * 100.0)
+            format!(
+                "{:.2}%",
+                (successful_count as f64 / total_count as f64) * 100.0
+            )
         } else {
             "0.00%".to_string()
         };
@@ -284,7 +314,11 @@ impl ApplicationRepository {
         })
     }
 
-    pub async fn get_chart_data(&self, user_id: i64, req: ApplicationTrendsRequest) -> Result<ApplicationTrendsResponse, sqlx::Error> {
+    pub async fn get_chart_data(
+        &self,
+        user_id: i64,
+        req: ApplicationTrendsRequest,
+    ) -> Result<ApplicationTrendsResponse, sqlx::Error> {
         let mut bar_query = QueryBuilder::new(
             r#"
         WITH latest_statuses AS (
@@ -299,7 +333,7 @@ impl ApplicationRepository {
         SELECT status_type as status, COUNT(*) as count
         FROM latest_statuses
         GROUP BY status_type
-        "#
+        "#,
         );
 
         let mut line_query = QueryBuilder::new(
@@ -320,9 +354,9 @@ impl ApplicationRepository {
             COUNT(*) as count
         FROM latest_statuses
         WHERE 1=1
-        "#
+        "#,
         );
-        
+
         if let Some(from) = req.from {
             line_query.push(" AND created_at >= ").push_bind(from);
         }
@@ -349,5 +383,255 @@ impl ApplicationRepository {
             bar_data,
             line_data,
         })
+    }
+
+    pub async fn compute_average_response_time(
+        &self,
+        user_id: i64,
+    ) -> Result<AverageResponseTime, sqlx::Error> {
+        let current_month_avg_days: Option<BigDecimal> = sqlx::query_scalar(
+            r#"
+            WITH applied_times AS (
+                SELECT
+                    application_id,
+                    created_at AS applied_at
+                FROM application_statuses
+                WHERE status_type = "Applied"
+            ),
+            response_times AS (
+                SELECT
+                    application_id,
+                    MIN(created_at) AS responded_at
+                FROM application_statuses
+                WHERE status_type IN ("Test", "Interview")
+                GROUP BY application_id
+            )
+            SELECT
+                FLOOR(AVG(EXTRACT(EPOCH FROM (rt.responded_at - at.applied_at)) / (60 * 60 * 24)))
+            FROM applications a
+            JOIN applied_times at ON a.id = at.application_id
+            JOIN response_times rt ON a.id = rt.application_id
+            WHERE a.created_by = $1
+              AND a.deleted = FALSE
+              AND rt.responded_at >= date_trunc("month", CURRENT_DATE)
+              AND rt.responded_at < date_trunc("month", CURRENT_DATE) + interval '1 month'
+              AND rt.responded_at > at.applied_at
+            "#,
+        )
+        .bind(user_id)
+        .fetch_one(self.pool.as_ref())
+        .await?;
+
+        let previous_month_avg_days: Option<BigDecimal> = sqlx::query_scalar(
+            r#"
+            WITH applied_times AS (
+                SELECT
+                    application_id,
+                    created_at AS applied_at
+                FROM application_statuses
+                WHERE status_type = "Applied"
+            ),
+            response_times AS (
+                SELECT
+                    application_id,
+                    MIN(created_at) AS responded_at
+                FROM application_statuses
+                WHERE status_type IN ("Test", "Interview")
+                GROUP BY application_id
+            )
+            SELECT
+                FLOOR(AVG(EXTRACT(EPOCH FROM (rt.responded_at - at.applied_at)) / (60 * 60 * 24)))
+            FROM applications a
+            JOIN applied_times at ON a.id = at.application_id
+            JOIN response_times rt ON a.id = rt.application_id
+            WHERE a.created_by = $1
+              AND a.deleted = FALSE
+              AND rt.responded_at >= date_trunc("month", CURRENT_DATE - interval '1 month')
+              AND rt.responded_at < date_trunc("month", CURRENT_DATE)
+              AND rt.responded_at > at.applied_at
+            "#,
+        )
+        .bind(user_id)
+        .fetch_one(self.pool.as_ref())
+        .await?;
+
+        let current_avg_i64 = current_month_avg_days.and_then(|bd| bd.to_i64());
+        let previous_avg_i64 = previous_month_avg_days.and_then(|bd| bd.to_i64());
+
+        let average = match current_avg_i64 {
+            Some(days) => format!("{} days", days),
+            None => "N/A".to_string(),
+        };
+
+        let (faster_message, compared_to_message) = match (current_avg_i64, previous_avg_i64) {
+            (Some(current), Some(previous)) => {
+                if current < previous {
+                    (
+                        format!("{} days faster", previous - current),
+                        "Compared to last month".to_string(),
+                    )
+                } else if current > previous {
+                    (
+                        format!("{} days slower", current - previous),
+                        "Compared to last month".to_string(),
+                    )
+                } else {
+                    ("Same as last month".to_string(), "".to_string())
+                }
+            }
+            _ => ("N/A".to_string(), "".to_string()),
+        };
+
+        Ok(AverageResponseTime {
+            average,
+            faster_message,
+            compared_to_message,
+        })
+    }
+
+    pub async fn get_recent_activities(
+        &self,
+        user_id: i64,
+    ) -> Result<RecentActivitiesResponse, sqlx::Error> {
+        let activities = sqlx::query_as::<_, RecentActivity>(
+            r#"
+        WITH recent_applications AS (
+            SELECT
+                a.id,
+                a.company,
+                a.position,
+                (SELECT status_type FROM application_statuses WHERE application_id = a.id ORDER BY created_at ASC LIMIT 1) as "current_status",
+                NULL as "previous_status",
+                a.created_at as last_updated
+            FROM applications a
+            WHERE a.created_by = $1 AND a.deleted = FALSE
+            ORDER BY a.created_at DESC
+            LIMIT 6
+        ),
+        recent_status_updates AS (
+            SELECT
+                id,
+                company,
+                position,
+                current_status,
+                previous_status,
+                last_updated
+            FROM (
+                SELECT
+                    a.id,
+                    a.company,
+                    a.position,
+                    ast.status_type as "current_status",
+                    LAG(ast.status_type) OVER (PARTITION BY ast.application_id ORDER BY ast.created_at ASC) as "previous_status",
+                    ast.created_at as last_updated
+                FROM applications a
+                JOIN application_statuses ast ON a.id = ast.application_id
+                WHERE a.created_by = $1 AND a.deleted = FALSE
+            ) AS subquery
+            WHERE previous_status IS NOT NULL
+            ORDER BY last_updated DESC
+            LIMIT 6
+        )
+        SELECT * FROM recent_applications
+        UNION ALL
+        SELECT * FROM recent_status_updates
+        ORDER BY last_updated DESC
+        LIMIT 6
+        "#,
+        )
+            .bind(user_id)
+            .fetch_all(self.pool.as_ref())
+            .await?;
+
+        Ok(RecentActivitiesResponse { activities })
+    }
+
+    pub async fn find_statuses_by_application_id(
+        &self,
+        application_id: i64,
+    ) -> Result<Vec<ApplicationStatus>, sqlx::Error> {
+        sqlx::query_as::<_, ApplicationStatus>(
+            r#"
+        SELECT *
+        FROM application_statuses
+        WHERE application_id = $1
+        ORDER BY created_at ASC
+        "#,
+        )
+        .bind(application_id)
+        .fetch_all(self.pool.as_ref())
+        .await
+    }
+
+    pub async fn update_application(
+        &self,
+        application_id: i64,
+        req: UpdateApplicationRequest,
+    ) -> Result<Application, sqlx::Error> {
+        let mut query_builder: QueryBuilder<Postgres> =
+            QueryBuilder::new("UPDATE applications SET ");
+
+        let mut needs_comma = false;
+
+        if let Some(company) = req.company {
+            if needs_comma {
+                query_builder.push(", ");
+            }
+            query_builder.push("company = ").push_bind(company);
+            needs_comma = true;
+        }
+        if let Some(position) = req.position {
+            if needs_comma {
+                query_builder.push(", ");
+            }
+            query_builder.push("position = ").push_bind(position);
+            needs_comma = true;
+        }
+        if let Some(website) = req.website {
+            if needs_comma {
+                query_builder.push(", ");
+            }
+            query_builder.push("website = ").push_bind(website);
+            needs_comma = true;
+        }
+        if let Some(application_type) = req.application_type {
+            if needs_comma {
+                query_builder.push(", ");
+            }
+            query_builder.push("application_type = ").push_bind(application_type);
+            needs_comma = true;
+        }
+
+        if needs_comma {
+            query_builder.push(", ");
+        }
+        query_builder.push("updated_at = ").push_bind(Local::now());
+
+        query_builder.push(" WHERE id = ");
+        query_builder.push_bind(application_id);
+        query_builder.push(" RETURNING *");
+
+        query_builder
+            .build_query_as()
+            .fetch_one(self.pool.as_ref())
+            .await
+    }
+
+    pub async fn delete_application(&self, application_id: i64) -> Result<(), sqlx::Error> {
+        let mut tx = self.pool.begin().await?;
+
+        sqlx::query("DELETE FROM application_statuses WHERE application_id = $1")
+            .bind(application_id)
+            .execute(&mut *tx)
+            .await?;
+
+        sqlx::query("DELETE FROM applications WHERE id = $1")
+            .bind(application_id)
+            .execute(&mut *tx)
+            .await?;
+
+        tx.commit().await?;
+
+        Ok(())
     }
 }

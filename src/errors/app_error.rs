@@ -1,9 +1,9 @@
 use thiserror::Error;
 use http::StatusCode;
-use sqlx::Error;
 use utoipa::ToSchema;
 use validator::ValidationErrors;
 use crate::errors::api_error::ApiError;
+use tracing::error;
 
 #[derive(Error, Debug, ToSchema)]
 pub enum AppError {
@@ -42,9 +42,12 @@ pub enum AppError {
 impl AppError {
     pub fn to_api_error(&self) -> ApiError {
         match self {
-            AppError::DatabaseError(msg) => ApiError {
-                status_code: StatusCode::INTERNAL_SERVER_ERROR.as_u16(),
-                message: format!("{}", msg),
+            AppError::DatabaseError(msg) => {
+                error!("Database error: {:?}", msg);
+                ApiError {
+                    status_code: StatusCode::INTERNAL_SERVER_ERROR.as_u16(),
+                    message: "error returned from database".to_string(),
+                }
             },
             AppError::ValidationError(msg) => ApiError {
                 status_code: StatusCode::BAD_REQUEST.as_u16(),
@@ -86,12 +89,12 @@ impl AppError {
     }
 }
 
-impl From<Error> for AppError {
-    fn from(error: Error) -> Self {
-        AppError::DatabaseError(error.to_string())  // Convert the `sqlx::Error` into a string
+impl From<sqlx::Error> for AppError {
+    fn from(error: sqlx::Error) -> Self {
+        error!("Database error: {:?}", error);
+        AppError::DatabaseError(error.to_string())
     }
 }
-
 
 pub fn extract_validation_errors(errors: &ValidationErrors) -> String {
     errors

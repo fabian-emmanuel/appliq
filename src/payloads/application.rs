@@ -29,6 +29,18 @@ pub struct ApplicationRequest {
     pub application_type: Option<ApplicationType>,
 }
 
+#[derive(Validate, Deserialize, ToSchema, Clone)]
+pub struct UpdateApplicationRequest {
+    pub company: Option<String>,
+
+    pub position: Option<String>,
+
+    pub website: Option<String>,
+
+    #[serde(rename = "applicationType")]
+    pub application_type: Option<ApplicationType>,
+}
+
 #[derive(Serialize, Deserialize, ToSchema)]
 pub struct ApplicationsResponse {
     pub id: i64,

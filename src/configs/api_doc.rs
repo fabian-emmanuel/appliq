@@ -1,3 +1,4 @@
+use crate::payloads::application::UpdateApplicationRequest;
 use utoipa::{OpenApi};
 
 #[derive(OpenApi)]
@@ -19,14 +20,24 @@ use utoipa::{OpenApi};
         crate::handlers::user_handler::register_user,
         crate::handlers::user_handler::get_user_data,
         crate::handlers::auth_handler::login,
+        crate::handlers::auth_handler::logout,
         crate::handlers::auth_handler::forgot_password,
         crate::handlers::auth_handler::reset_password,
         crate::handlers::application_handler::register_application,
         crate::handlers::application_handler::add_application_status,
         crate::handlers::application_handler::fetch_applications_for_user_with_filters,
+        crate::handlers::application_handler::delete_application,
+        crate::handlers::application_handler::update_application,
         crate::handlers::dashboard_handler::get_dashboard_stats,
         crate::handlers::dashboard_handler::get_success_rate,
         crate::handlers::dashboard_handler::get_chart_data,
+        crate::handlers::dashboard_handler::get_average_response_time,
+        crate::handlers::dashboard_handler::get_recent_activities,
+    ),
+    components(
+        schemas(
+            UpdateApplicationRequest
+        )
     ),
     security(
         ("JWT" = [])
