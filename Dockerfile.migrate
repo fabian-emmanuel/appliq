@@ -1,0 +1,36 @@
+# Migration Dockerfile for running SQLx migrations
+FROM rust:1.75-slim AS builder
+
+# Install build dependencies
+RUN apt-get update && \
+    apt-get install -y \
+    pkg-config \
+    libpq-dev \
+    libssl-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install SQLx CLI
+RUN cargo install sqlx-cli --no-default-features --features postgres
+
+# Runtime stage
+FROM debian:bookworm-slim
+
+# Install runtime dependencies
+RUN apt-get update && \
+    apt-get install -y \
+    libpq5 \
+    ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy SQLx CLI from builder
+COPY --from=builder /usr/local/cargo/bin/sqlx /usr/local/bin/sqlx
+
+# Set working directory
+WORKDIR /app
+
+# Copy migration files
+COPY db ./db
+
+# Default command to run migrations
+CMD ["sqlx", "migrate", "run"]
+
