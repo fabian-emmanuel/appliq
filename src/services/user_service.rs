@@ -1,6 +1,6 @@
 use crate::errors::app_error::{AppError, extract_validation_errors};
 use crate::models::user::User;
-use crate::payloads::user::{UserInfo, UserRequest};
+use crate::payloads::user::{UpdateUser, UserInfo, UserRequest};
 use crate::repositories::user_repository::UserRepository;
 use bcrypt::{DEFAULT_COST, hash};
 use std::sync::Arc;
@@ -63,16 +63,39 @@ impl UserService {
                 AppError::ResourceNotFound(String::from("User not found."))
             })?;
 
-        Ok(UserInfo {
-            id: user.id,
-            email: user.email,
-            first_name: user.first_name,
-            last_name: user.last_name,
-            role: user.role,
-            created_at: user.created_at,
-            last_login_at: user.last_login_at,
-            is_verified: user.is_verified,
-            phone_number: user.phone_number,
-        })
+        Ok(UserInfo::from_user(&user))
+    }
+
+    pub async fn update_user(&self, user_id: i64, update_data: UpdateUser) -> Result<UserInfo, AppError> {
+        update_data.validate().map_err(|err| AppError::ValidationError(extract_validation_errors(&err)))?;
+
+        let mut current_user = self.user_repo.get_user_by_id(user_id).await.map_err(|err| {
+            error!("Failed to fetch user with ID {}: {}", user_id, err);
+            AppError::ResourceNotFound(String::from("User not found."))
+        })?;
+
+        if let Some(first_name) = update_data.first_name {
+            current_user.first_name = first_name;
+        }
+
+        if let Some(last_name) = update_data.last_name {
+            current_user.last_name = last_name;
+        }
+
+        if let Some(phone_number) = update_data.phone_number {
+            current_user.phone_number = Some(phone_number);
+        }
+
+        if let Some(location) = update_data.location {
+            current_user.location = Some(location);
+        }
+
+        if let Some(bio) = update_data.bio {
+            current_user.bio = Some(bio);
+        }
+
+        self.user_repo.update_user(user_id, current_user).await
+            .map(|user| UserInfo::from_user(&user))
+            .map_err(|e| AppError::DatabaseError(e.to_string()))
     }
 }

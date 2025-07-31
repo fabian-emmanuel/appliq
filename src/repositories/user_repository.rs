@@ -80,4 +80,23 @@ impl UserRepository {
             .map(|_| ())
     }
 
+    pub async fn update_user(&self, user_id: i64, current_user: User) -> Result<User, sqlx::Error> {
+        sqlx::query_as::<_, User>(
+            r#"
+            UPDATE users
+            SET first_name = $1, last_name = $2, phone_number = $3, location = $4, bio = $5, updated_at = NOW() AT TIME ZONE 'utc'
+            WHERE id = $6
+            RETURNING *
+            "#,
+        )
+            .bind(&current_user.first_name)
+            .bind(&current_user.last_name)
+            .bind(&current_user.phone_number)
+            .bind(&current_user.location)
+            .bind(&current_user.bio)
+            .bind(user_id)
+            .fetch_one(self.pool.as_ref())
+            .await
+    }
+
 }

@@ -1,6 +1,6 @@
 use crate::configs::routes::{USER_DATA, USER_REGISTER};
 use crate::errors::api_error::ApiError;
-use crate::payloads::user::{UserInfo, UserRequest};
+use crate::payloads::user::{UpdateUser, UserInfo, UserRequest};
 use crate::services::user_service::UserService;
 use crate::utils::api_response::ApiResponse;
 use crate::utils::jwt::Claims;
@@ -69,6 +69,42 @@ pub async fn get_user_data(
         )),
         Err(err) => {
             error!("Failed to retrieve user data: {err}");
+            let api_error = err.to_api_error();
+            let status_code = StatusCode::from_u16(api_error.status_code)
+                .unwrap_or(StatusCode::INTERNAL_SERVER_ERROR);
+
+            Err((status_code, Json(api_error)))
+        }
+    }
+}
+
+
+#[utoipa::path(put, path = "/api/v1/user/me", request_body = UpdateUser, responses(
+        (status = 200, description = "User updated successfully", body = ApiResponse<UserInfo>),
+        (status = 400, description = "Bad request", body = ApiError),
+        (status = 401, description = "Unauthorized - invalid or expired token", body = ApiError),
+        (status = 404, description = "User not found", body = ApiError),
+        (status = 500, description = "Internal server error", body = ApiError),
+    ),
+    security(
+        ("bearer_auth" = [])
+    ),
+    tag = "User Handler",
+    operation_id = "updateUser",
+    summary = "Update user details",
+    description = "Updates the profile information of the currently authenticated user.")]
+pub async fn update_user(
+    State(handler): State<Arc<UserHandler>>,
+    claims: Claims,
+    Json(req): Json<UpdateUser>,
+) -> Result<(StatusCode, Json<ApiResponse<UserInfo>>), (StatusCode, Json<ApiError>)> {
+    match handler.user_service.update_user(claims.subject, req).await {
+        Ok(user) => Ok((
+            StatusCode::OK,
+            Json(ApiResponse::new("User updated successfully", user)),
+        )),
+        Err(err) => {
+            error!("Failed to update user: {err}");
             let api_error = err.to_api_error();
             let status_code = StatusCode::from_u16(api_error.status_code)
                 .unwrap_or(StatusCode::INTERNAL_SERVER_ERROR);

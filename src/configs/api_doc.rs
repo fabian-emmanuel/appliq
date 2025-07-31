@@ -19,6 +19,7 @@ use utoipa::{OpenApi};
     paths(
         crate::handlers::user_handler::register_user,
         crate::handlers::user_handler::get_user_data,
+        crate::handlers::user_handler::update_user,
         crate::handlers::auth_handler::login,
         crate::handlers::auth_handler::logout,
         crate::handlers::auth_handler::forgot_password,
