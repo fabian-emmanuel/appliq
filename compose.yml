@@ -18,8 +18,6 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
-    networks:
-      - appliq-network
 
   # RabbitMQ Message Broker (if needed for async processing)
   rabbitmq:
@@ -40,8 +38,6 @@ services:
       interval: 30s
       timeout: 10s
       retries: 5
-    networks:
-      - appliq-network
 
   # AppliQ Application
   app:
@@ -78,15 +74,9 @@ services:
       timeout: 10s
       retries: 3
       start_period: 40s
-    networks:
-      - appliq-network
 
 volumes:
   postgres_data:
     driver: local
   rabbitmq_data:
     driver: local
-
-networks:
-  appliq-network:
-    driver: bridge

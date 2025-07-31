@@ -11,6 +11,8 @@ pub struct User {
     pub last_name: String,
     pub email: String,
     pub phone_number: Option<String>,
+    pub location: Option<String>,
+    pub bio: Option<String>,
 
     #[serde(skip_serializing)]
     pub password: String,
@@ -48,6 +50,8 @@ impl User {
             email,
             password,
             phone_number,
+            location: None,
+            bio: None,
             role: role.unwrap_or_else(|| Role::User),
             created_at: now,
             updated_at: now,

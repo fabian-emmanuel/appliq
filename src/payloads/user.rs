@@ -46,6 +46,10 @@ pub struct UserInfo {
 
     #[serde(rename = "phoneNumber")]
     pub phone_number: Option<String>,
+
+    pub location: Option<String>,
+
+    pub bio: Option<String>,
     
     pub email: String,
     
@@ -61,6 +65,30 @@ pub struct UserInfo {
     pub is_verified: bool,
 }
 
+#[derive(Validate, Deserialize, ToSchema)]
+pub struct UpdateUser {
+    #[serde(rename = "firstName")]
+    #[validate(length(min = 1, message = "First name cannot be empty"))]
+    pub first_name: Option<String>,
+
+    #[serde(rename = "lastName")]
+    #[validate(length(min = 1, message = "Last name cannot be empty"))]
+    pub last_name: Option<String>,
+
+    #[serde(rename = "phoneNumber")]
+    #[validate(
+    regex(path = "*PHONE_REGEX", message = "Invalid phone number format (e.g., +1234567890123)"),
+    length(min = 14, message = "Phone number must be at least 14 characters")
+    )]
+    pub phone_number: Option<String>,
+
+    #[validate(length(min = 1, message = "Location cannot be empty"))]
+    pub location: Option<String>,
+
+    #[validate(length(min = 1, message = "Bio cannot be empty"))]
+    pub bio: Option<String>,
+}
+
 impl UserInfo {
     pub fn from_user(user: &User) -> Self {
         Self {
@@ -69,6 +97,8 @@ impl UserInfo {
             last_name: user.last_name.clone(),
             email: user.email.clone(),
             phone_number: user.phone_number.clone(),
+            location: user.location.clone(),
+            bio: user.bio.clone(),
             role: user.role.clone(),
             created_at: user.created_at.clone(),
             last_login_at: user.last_login_at.clone(),
