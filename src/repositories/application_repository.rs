@@ -396,14 +396,14 @@ impl ApplicationRepository {
                     application_id,
                     created_at AS applied_at
                 FROM application_statuses
-                WHERE status_type = "Applied"
+                WHERE status_type = 'Applied'
             ),
             response_times AS (
                 SELECT
                     application_id,
                     MIN(created_at) AS responded_at
                 FROM application_statuses
-                WHERE status_type IN ("Test", "Interview")
+                WHERE status_type IN ('Test', 'Interview')
                 GROUP BY application_id
             )
             SELECT
@@ -413,8 +413,8 @@ impl ApplicationRepository {
             JOIN response_times rt ON a.id = rt.application_id
             WHERE a.created_by = $1
               AND a.deleted = FALSE
-              AND rt.responded_at >= date_trunc("month", CURRENT_DATE)
-              AND rt.responded_at < date_trunc("month", CURRENT_DATE) + interval '1 month'
+              AND rt.responded_at >= date_trunc('month', CURRENT_DATE)
+              AND rt.responded_at < date_trunc('month', CURRENT_DATE) + interval '1 month'
               AND rt.responded_at > at.applied_at
             "#,
         )
@@ -429,14 +429,14 @@ impl ApplicationRepository {
                     application_id,
                     created_at AS applied_at
                 FROM application_statuses
-                WHERE status_type = "Applied"
+                WHERE status_type = 'Applied'
             ),
             response_times AS (
                 SELECT
                     application_id,
                     MIN(created_at) AS responded_at
                 FROM application_statuses
-                WHERE status_type IN ("Test", "Interview")
+                WHERE status_type IN ('Test', 'Interview')
                 GROUP BY application_id
             )
             SELECT
@@ -446,8 +446,8 @@ impl ApplicationRepository {
             JOIN response_times rt ON a.id = rt.application_id
             WHERE a.created_by = $1
               AND a.deleted = FALSE
-              AND rt.responded_at >= date_trunc("month", CURRENT_DATE - interval '1 month')
-              AND rt.responded_at < date_trunc("month", CURRENT_DATE)
+              AND rt.responded_at >= date_trunc('month', CURRENT_DATE - interval '1 month')
+              AND rt.responded_at < date_trunc('month', CURRENT_DATE)
               AND rt.responded_at > at.applied_at
             "#,
         )
@@ -501,7 +501,7 @@ impl ApplicationRepository {
                 a.company,
                 a.position,
                 (SELECT status_type FROM application_statuses WHERE application_id = a.id ORDER BY created_at ASC LIMIT 1) as "current_status",
-                NULL as "previous_status",
+                NULL::VARCHAR as "previous_status",
                 a.created_at as last_updated
             FROM applications a
             WHERE a.created_by = $1 AND a.deleted = FALSE
