@@ -1,1 +1,0 @@
-ALTER TABLE applications ALTER COLUMN application_type DROP NOT NULL;
