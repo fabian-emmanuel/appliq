@@ -3,7 +3,7 @@ name: Build and Deploy to Render
 on:
   push:
     branches:
-      - dev  # only deploy when dev branch is updated
+      - dev
 
 env:
   RENDER_SERVICE_ID: ${{ secrets.RENDER_SERVICE_ID }}
@@ -38,7 +38,7 @@ jobs:
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
         with:
-          toolchain: stable  # Using stable toolchain for better reliability
+          toolchain: stable
 
       - name: Cache Cargo
         uses: Swatinem/rust-cache@v2
@@ -52,8 +52,11 @@ jobs:
           cp target/release/appliq deploy/app
           cp -r db resources deploy/
 
-      - name: Copy runtime Dockerfile
-        run: cp Dockerfile deploy/Dockerfile
+          # Copy runtime Dockerfile into deploy
+          cp Dockerfile deploy/Dockerfile
+
+      - name: Package deploy folder
+        run: tar -czf deploy.tar.gz -C deploy .
 
       - name: Check for Render API Key
         if: env.RENDER_SERVICE_ID == ''
@@ -61,21 +64,9 @@ jobs:
           echo "RENDER_SERVICE_ID secret not set. Please add it to your GitHub repository secrets."
           exit 1
 
-      - name: Trigger Render deploy via API
+      - name: Upload prebuilt bundle to Render
         run: |
-          response=$(curl -s -w "%{\nhttp_code}" -X POST "https://api.render.com/v1/services/${{ env.RENDER_SERVICE_ID }}/deploys" \
-            -H "Accept: application/json" \
+          curl -X POST \
             -H "Authorization: Bearer ${{ secrets.RENDER_API_KEY }}" \
-            -d '{}')
-          
-          http_code=$(tail -n1 <<< "$response")
-          body=$(head -n -1 <<< "$response")
-
-          if [ "$http_code" -ne 201 ]; then
-            echo "Failed to trigger Render deploy. HTTP status code: $http_code"
-            echo "Response body: $body"
-            exit 1
-          fi
-
-          echo "Successfully triggered Render deploy."
-          echo "Response body: $body"
+            -F "tar=@deploy.tar.gz" \
+            "https://api.render.com/v1/services/${{ env.RENDER_SERVICE_ID }}/deploys"
