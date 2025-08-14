@@ -70,19 +70,56 @@ jobs:
 
       - name: Upload to Render
         run: |
-          response=$(curl -s -w "\n%{http_code}" -X POST "https://api.render.com/v1/services/${{ env.RENDER_SERVICE_ID }}/deploys" \
+          # Method 1: Using the correct API endpoint with proper headers
+          response=$(curl -s -w "\n%{http_code}" -X POST \
+            "https://api.render.com/v1/services/${{ env.RENDER_SERVICE_ID }}/deploys" \
             -H "Authorization: Bearer ${{ env.RENDER_API_KEY }}" \
-            -F "tar=@deploy.tar.gz")
+            -H "Content-Type: application/json" \
+            -d '{}')
 
           http_code=$(echo "$response" | tail -n1)
           body=$(echo "$response" | head -n -1)
 
-          if [ "$http_code" -ne 201 ]; then
-            echo "Failed to trigger Render deploy. HTTP status code: $http_code"
+          if [ "$http_code" -eq 201 ]; then
+            echo "Successfully triggered Render deploy."
             echo "Response body: $body"
-            exit 1
-          fi
+          else
+            echo "Method 1 failed, trying alternative approach..."
+          
+            # Method 2: Alternative approach using multipart form-data
+            response=$(curl -s -w "\n%{http_code}" -X POST \
+              "https://api.render.com/v1/services/${{ env.RENDER_SERVICE_ID }}/deploys" \
+              -H "Authorization: Bearer ${{ env.RENDER_API_KEY }}" \
+              --form-string 'type=manual' \
+              --form 'file=@deploy.tar.gz;type=application/gzip')
 
-          echo "Successfully triggered Render deploy."
-          echo "Response body: $body"
-      
+            http_code=$(echo "$response" | tail -n1)
+            body=$(echo "$response" | head -n -1)
+
+            if [ "$http_code" -ne 201 ]; then
+              echo "Failed to trigger Render deploy. HTTP status code: $http_code"
+              echo "Response body: $body"
+          
+              # Method 3: Try git-based deployment trigger
+              echo "Trying git-based deployment trigger..."
+              response=$(curl -s -w "\n%{http_code}" -X POST \
+                "https://api.render.com/v1/services/${{ env.RENDER_SERVICE_ID }}/deploys" \
+                -H "Authorization: Bearer ${{ env.RENDER_API_KEY }}" \
+                -H "Content-Type: application/json" \
+                -d '{
+                  "type": "manual"
+                }')
+
+              http_code=$(echo "$response" | tail -n1)
+              body=$(echo "$response" | head -n -1)
+
+              if [ "$http_code" -ne 201 ]; then
+                echo "All deployment methods failed. Final HTTP status code: $http_code"
+                echo "Final response body: $body"
+                exit 1
+              fi
+            fi
+
+            echo "Successfully triggered Render deploy."
+            echo "Response body: $body"
+          fi
