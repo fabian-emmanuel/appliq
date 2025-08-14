@@ -33,10 +33,9 @@ jobs:
       - name: Copy runtime Dockerfile
         run: cp Dockerfile deploy/Dockerfile
 
-      - name: Deploy to Render
-        uses: render-examples/deploy-action@v1
-        with:
-          serviceId: ${{ secrets.RENDER_SERVICE_ID }}
-          apiKey: ${{ secrets.RENDER_API_KEY }}
-          branch: dev
-          buildContext: ./deploy
+      - name: Trigger Render deploy via API
+        run: |
+          curl -X POST "https://api.render.com/v1/services/${{ secrets.RENDER_SERVICE_ID }}/deploys" \
+            -H "Accept: application/json" \
+            -H "Authorization: Bearer ${{ secrets.RENDER_API_KEY }}" \
+            -d ''
