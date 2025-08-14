@@ -319,70 +319,97 @@ impl ApplicationRepository {
         user_id: i64,
         req: ApplicationTrendsRequest,
     ) -> Result<ApplicationTrendsResponse, sqlx::Error> {
-        let mut bar_query = QueryBuilder::new(
+        // Bar data: latest status per application, grouped by status
+        let mut bar_qb = QueryBuilder::new(
             r#"
         WITH latest_statuses AS (
             SELECT DISTINCT ON (a.id)
-                a.id as application_id,
+                a.id AS application_id,
                 ast.status_type
             FROM applications a
             LEFT JOIN application_statuses ast ON a.id = ast.application_id
-            WHERE a.created_by = $1 AND a.deleted = false
+            WHERE a.created_by = "#,
+        );
+        bar_qb.push_bind(user_id);
+        bar_qb.push(
+            r#" AND a.deleted = false
             ORDER BY a.id, ast.created_at DESC NULLS LAST
         )
-        SELECT status_type as status, COUNT(*) as count
+        SELECT status_type AS status, COUNT(*) AS count
         FROM latest_statuses
-        GROUP BY status_type
+        WHERE 1=1
         "#,
         );
 
-        let mut line_query = QueryBuilder::new(
+        if let Some(statuses) = &req.statuses {
+            // status_type IN (...)
+            bar_qb.push(" AND status_type IN (");
+            let mut separated = bar_qb.separated(", ");
+            for s in statuses {
+                separated.push_bind(s);
+            }
+            separated.push_unseparated(")");
+        }
+
+        bar_qb.push(" GROUP BY status_type");
+
+        // Line data: latest status per application per day, with optional date range
+        let mut line_qb = QueryBuilder::new(
             r#"
         WITH latest_statuses AS (
             SELECT DISTINCT ON (a.id)
-                a.id as application_id,
+                a.id AS application_id,
                 a.created_at,
                 ast.status_type
             FROM applications a
             LEFT JOIN application_statuses ast ON a.id = ast.application_id
-            WHERE a.created_by = $1 AND a.deleted = false
+            WHERE a.created_by = "#,
+        );
+        line_qb.push_bind(user_id);
+        line_qb.push(
+            r#" AND a.deleted = false
             ORDER BY a.id, ast.created_at DESC NULLS LAST
         )
         SELECT 
-            (DATE(created_at) || ' 00:00:00')::TIMESTAMPTZ as date, 
-            status_type as status,
-            COUNT(*) as count
+            (DATE(created_at) || ' 00:00:00')::TIMESTAMPTZ AS date,
+            status_type AS status,
+            COUNT(*) AS count
         FROM latest_statuses
         WHERE 1=1
         "#,
         );
 
         if let Some(from) = req.from {
-            line_query.push(" AND created_at >= ").push_bind(from);
+            line_qb.push(" AND created_at >= ").push_bind(from);
         }
-
         if let Some(to) = req.to {
-            line_query.push(" AND created_at <= ").push_bind(to);
+            line_qb.push(" AND created_at <= ").push_bind(to);
+        }
+        if let Some(statuses) = &req.statuses {
+            line_qb.push(" AND status_type IN (");
+            let mut separated = line_qb.separated(", ");
+            for s in statuses {
+                separated.push_bind(s);
+            }
+            separated.push_unseparated(")");
         }
 
-        line_query.push(" GROUP BY (DATE(created_at) || ' 00:00:00')::TIMESTAMPTZ, status_type ORDER BY (DATE(created_at) || ' 00:00:00')::TIMESTAMPTZ, status_type");
+        line_qb.push(
+            " GROUP BY (DATE(created_at) || ' 00:00:00')::TIMESTAMPTZ, status_type \
+              ORDER BY (DATE(created_at) || ' 00:00:00')::TIMESTAMPTZ, status_type",
+        );
 
-        let bar_data: Vec<StatusCount> = bar_query
+        let bar_data: Vec<StatusCount> = bar_qb
             .build_query_as()
-            .bind(user_id)
             .fetch_all(self.pool.as_ref())
             .await?;
 
-        let line_data: Vec<DatesCount> = line_query
+        let line_data: Vec<DatesCount> = line_qb
             .build_query_as()
-            .bind(user_id)
             .fetch_all(self.pool.as_ref())
             .await?;
 
-        Ok(ApplicationTrendsResponse {
-            bar_data,
-            line_data,
-        })
+        Ok(ApplicationTrendsResponse { bar_data, line_data })
     }
 
     pub async fn compute_average_response_time(

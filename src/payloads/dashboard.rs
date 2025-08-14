@@ -3,6 +3,7 @@ use serde::{Deserialize, Serialize};
 use sqlx::FromRow;
 use utoipa::ToSchema;
 use crate::enums::application::Status;
+use crate::utils::custom_formatter::{deserialize_csv_statuses};
 
 #[derive(Serialize, Deserialize, ToSchema)]
 pub struct DashboardCount {
@@ -50,6 +51,7 @@ pub struct ApplicationTrendsRequest {
     pub from: Option<DateTime<Utc>>,
     #[serde(alias = "to")]
     pub to: Option<DateTime<Utc>>,
+    #[serde(default, deserialize_with = "deserialize_csv_statuses")]
     pub statuses: Option<Vec<Status>>,
 }
 
