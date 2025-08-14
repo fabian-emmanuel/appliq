@@ -59,67 +59,77 @@ jobs:
 
       - name: Prepare deploy folder
         run: |
-          mkdir deploy
+          # Remove old deploy folder if it exists
+          rm -rf deploy
+          
+          # Create new deploy folder
+          mkdir -p deploy
           cp target/release/appliq deploy/app
           cp -r db resources deploy/
-          cp Dockerfile deploy/Dockerfile
+          
+          # Create a simple Dockerfile for the pre-built binary
+          cat > deploy/Dockerfile << 'EOF'
+          FROM debian:bookworm-slim
+          
+          # Install runtime dependencies
+          RUN apt-get update && apt-get install -y \
+              ca-certificates \
+              && rm -rf /var/lib/apt/lists/*
+          
+          # Set working directory
+          WORKDIR /app
+          
+          # Copy pre-built binary and resources
+          COPY app /usr/local/bin/app
+          COPY db ./db
+          COPY resources ./resources
+          
+          # Make binary executable
+          RUN chmod +x /usr/local/bin/app
+          
+          # Expose port
+          EXPOSE 8000
+          
+          # Run the binary
+          CMD ["/usr/local/bin/app"]
+          EOF
+          
+          # Make the binary executable
+          chmod +x deploy/app
 
-      - name: Create tarball
+      - name: Commit and push binary
         run: |
-          tar -czf deploy.tar.gz -C deploy .
-
-      - name: Upload to Render
-        run: |
-          # Method 1: Using the correct API endpoint with proper headers
-          response=$(curl -s -w "\n%{http_code}" -X POST \
-            "https://api.render.com/v1/services/${{ env.RENDER_SERVICE_ID }}/deploys" \
-            -H "Authorization: Bearer ${{ env.RENDER_API_KEY }}" \
-            -H "Content-Type: application/json" \
-            -d '{}')
-
-          http_code=$(echo "$response" | tail -n1)
-          body=$(echo "$response" | head -n -1)
-
-          if [ "$http_code" -eq 201 ]; then
-            echo "Successfully triggered Render deploy."
-            echo "Response body: $body"
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          
+          # Add the deploy folder to git
+          git add deploy/
+          
+          # Check if there are changes to commit
+          if git diff --cached --quiet; then
+          echo "No changes to commit"
           else
-            echo "Method 1 failed, trying alternative approach..."
+          git commit -m "Deploy: Update pre-built binary [skip ci]"
+          git push
+          fi
           
-            # Method 2: Alternative approach using multipart form-data
-            response=$(curl -s -w "\n%{http_code}" -X POST \
-              "https://api.render.com/v1/services/${{ env.RENDER_SERVICE_ID }}/deploys" \
-              -H "Authorization: Bearer ${{ env.RENDER_API_KEY }}" \
-              --form-string 'type=manual' \
-              --form 'file=@deploy.tar.gz;type=application/gzip')
-
-            http_code=$(echo "$response" | tail -n1)
-            body=$(echo "$response" | head -n -1)
-
-            if [ "$http_code" -ne 201 ]; then
-              echo "Failed to trigger Render deploy. HTTP status code: $http_code"
-              echo "Response body: $body"
-          
-              # Method 3: Try git-based deployment trigger
-              echo "Trying git-based deployment trigger..."
+          - name: Trigger Render Deploy
+            run: |
+              # Simple trigger since binary is now in the repo
               response=$(curl -s -w "\n%{http_code}" -X POST \
                 "https://api.render.com/v1/services/${{ env.RENDER_SERVICE_ID }}/deploys" \
                 -H "Authorization: Bearer ${{ env.RENDER_API_KEY }}" \
                 -H "Content-Type: application/json" \
-                -d '{
-                  "type": "manual"
-                }')
-
+                -d '{"type": "manual"}')
+          
               http_code=$(echo "$response" | tail -n1)
               body=$(echo "$response" | head -n -1)
-
+          
               if [ "$http_code" -ne 201 ]; then
-                echo "All deployment methods failed. Final HTTP status code: $http_code"
-                echo "Final response body: $body"
+                echo "Failed to trigger Render deploy. HTTP status code: $http_code"
+                echo "Response body: $body"
                 exit 1
               fi
-            fi
-
-            echo "Successfully triggered Render deploy."
-            echo "Response body: $body"
-          fi
+          
+              echo "Successfully triggered Render deploy."
+              echo "Response body: $body"
