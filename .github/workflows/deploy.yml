@@ -8,6 +8,7 @@ on:
 env:
   RENDER_SERVICE_ID: ${{ secrets.RENDER_SERVICE_ID }}
   DATABASE_URL: ${{ secrets.DATABASE_URL }}
+  RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
 
 jobs:
   migrate-database:
@@ -40,33 +41,47 @@ jobs:
         with:
           toolchain: stable
 
-      - name: Cache Cargo
-        uses: Swatinem/rust-cache@v2
+      - name: Install faster linker
+        run: sudo apt-get update && sudo apt-get install -y lld clang mold
 
-      - name: Build release binary
-        run: cargo build --release
+      - name: Cache Cargo registry and target
+        uses: Swatinem/rust-cache@v2
+        with:
+          key: rust-${{ runner.os }}-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Build release binary (optimized)
+        run: |
+          export RUSTFLAGS="-C link-arg=-fuse-ld=lld"
+          export CARGO_INCREMENTAL=1
+          export CARGO_PROFILE_RELEASE_CODEGEN_UNITS=16
+          export CARGO_PROFILE_RELEASE_LTO=false
+          cargo build --release
 
       - name: Prepare deploy folder
         run: |
           mkdir deploy
           cp target/release/appliq deploy/app
           cp -r db resources deploy/
-
-          # Copy runtime Dockerfile into deploy
           cp Dockerfile deploy/Dockerfile
 
-      - name: Package deploy folder
-        run: tar -czf deploy.tar.gz -C deploy .
-
-      - name: Check for Render API Key
-        if: env.RENDER_SERVICE_ID == ''
+      - name: Create tarball
         run: |
-          echo "RENDER_SERVICE_ID secret not set. Please add it to your GitHub repository secrets."
-          exit 1
+          tar -czf deploy.tar.gz -C deploy .
 
-      - name: Upload prebuilt bundle to Render
+      - name: Upload to Render
         run: |
-          curl -X POST \
-            -H "Authorization: Bearer ${{ secrets.RENDER_API_KEY }}" \
-            -F "tar=@deploy.tar.gz" \
-            "https://api.render.com/v1/services/${{ env.RENDER_SERVICE_ID }}/deploys"
+          response=$(curl -s -w "%{\nhttp_code}" -X POST "https://api.render.com/v1/services/${{ env.RENDER_SERVICE_ID }}/deploys" \
+            -H "Authorization: Bearer ${{ env.RENDER_API_KEY }}" \
+            -F "tar=@deploy.tar.gz")
+          
+          http_code=$(tail -n1 <<< "$response")
+          body=$(head -n -1 <<< "$response")
+
+          if [ "$http_code" -ne 201 ]; then
+            echo "Failed to trigger Render deploy. HTTP status code: $http_code"
+            echo "Response body: $body"
+            exit 1
+          fi
+
+          echo "Successfully triggered Render deploy."
+          echo "Response body: $body"
