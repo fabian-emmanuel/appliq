@@ -1,3 +1,4 @@
+#![recursion_limit = "256"]
 use std::{net::SocketAddr};
 use std::sync::Arc;
 use tracing::{error, info};
