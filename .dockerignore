@@ -3,3 +3,5 @@ target/
 *.md
 .env*
 node_modules/
+docs
+tests

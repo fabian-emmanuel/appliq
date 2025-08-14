@@ -1,0 +1,42 @@
+name: Build and Deploy to Render
+
+on:
+  push:
+    branches:
+      - dev  # only deploy when dev branch is updated
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: nightly  # match your local dev toolchain
+
+      - name: Cache Cargo
+        uses: Swatinem/rust-cache@v2
+
+      - name: Build release binary
+        run: cargo build --release
+
+      - name: Prepare deploy folder
+        run: |
+          mkdir deploy
+          cp target/release/appliq deploy/app
+          cp -r db resources deploy/
+
+      - name: Copy runtime Dockerfile
+        run: cp Dockerfile deploy/Dockerfile
+
+      - name: Deploy to Render
+        uses: render-examples/deploy-action@v1
+        with:
+          serviceId: ${{ secrets.RENDER_SERVICE_ID }}
+          apiKey: ${{ secrets.RENDER_API_KEY }}
+          branch: dev
+          buildContext: ./deploy
