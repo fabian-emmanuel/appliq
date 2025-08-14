@@ -5,6 +5,10 @@ on:
     branches:
       - dev
 
+permissions:
+  contents: write  # Allows pushing commits
+  actions: read
+
 env:
   RENDER_SERVICE_ID: ${{ secrets.RENDER_SERVICE_ID }}
   DATABASE_URL: ${{ secrets.DATABASE_URL }}
@@ -35,6 +39,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
@@ -107,29 +113,29 @@ jobs:
           
           # Check if there are changes to commit
           if git diff --cached --quiet; then
-          echo "No changes to commit"
+            echo "No changes to commit"
           else
-          git commit -m "Deploy: Update pre-built binary [skip ci]"
-          git push
+            git commit -m "Deploy: Update pre-built binary [skip ci]"
+            git push
           fi
-          
-          - name: Trigger Render Deploy
-            run: |
-              # Simple trigger since binary is now in the repo
-              response=$(curl -s -w "\n%{http_code}" -X POST \
-                "https://api.render.com/v1/services/${{ env.RENDER_SERVICE_ID }}/deploys" \
-                -H "Authorization: Bearer ${{ env.RENDER_API_KEY }}" \
-                -H "Content-Type: application/json" \
-                -d '{"type": "manual"}')
-          
-              http_code=$(echo "$response" | tail -n1)
-              body=$(echo "$response" | head -n -1)
-          
-              if [ "$http_code" -ne 201 ]; then
-                echo "Failed to trigger Render deploy. HTTP status code: $http_code"
-                echo "Response body: $body"
-                exit 1
-              fi
-          
-              echo "Successfully triggered Render deploy."
-              echo "Response body: $body"
+
+      - name: Trigger Render Deploy
+        run: |
+          # Simple trigger since binary is now in the repo
+          response=$(curl -s -w "\n%{http_code}" -X POST \
+            "https://api.render.com/v1/services/${{ env.RENDER_SERVICE_ID }}/deploys" \
+            -H "Authorization: Bearer ${{ env.RENDER_API_KEY }}" \
+            -H "Content-Type: application/json" \
+            -d '{"type": "manual"}')
+
+          http_code=$(echo "$response" | tail -n1)
+          body=$(echo "$response" | head -n -1)
+
+          if [ "$http_code" -ne 201 ]; then
+            echo "Failed to trigger Render deploy. HTTP status code: $http_code"
+            echo "Response body: $body"
+            exit 1
+          fi
+
+          echo "Successfully triggered Render deploy."
+          echo "Response body: $body"
