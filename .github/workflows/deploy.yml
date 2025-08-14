@@ -7,6 +7,7 @@ on:
 
 env:
   RENDER_SERVICE_ID: ${{ secrets.RENDER_SERVICE_ID }}
+  RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
   DATABASE_URL: ${{ secrets.DATABASE_URL }}
 
 jobs:
@@ -19,7 +20,7 @@ jobs:
       - name: Check for DATABASE_URL secret
         if: env.DATABASE_URL == ''
         run: |
-          echo "DATABASE_URL secret not set. Please add it to your GitHub repository secrets."
+          echo "❌ DATABASE_URL secret not set in GitHub secrets."
           exit 1
 
       - name: Build migration image
@@ -52,21 +53,39 @@ jobs:
           cp target/release/appliq deploy/app
           cp -r db resources deploy/
 
-          # Copy runtime Dockerfile into deploy
-          cp Dockerfile deploy/Dockerfile
+      - name: Copy runtime Dockerfile
+        run: cp Dockerfile deploy/Dockerfile
 
-      - name: Package deploy folder
-        run: tar -czf deploy.tar.gz -C deploy .
-
-      - name: Check for Render API Key
-        if: env.RENDER_SERVICE_ID == ''
+      - name: Verify Render Secrets
         run: |
-          echo "RENDER_SERVICE_ID secret not set. Please add it to your GitHub repository secrets."
-          exit 1
+          if [ -z "${{ env.RENDER_SERVICE_ID }}" ]; then
+            echo "❌ Missing RENDER_SERVICE_ID in GitHub secrets."
+            exit 1
+          fi
+          if [ -z "${{ env.RENDER_API_KEY }}" ]; then
+            echo "❌ Missing RENDER_API_KEY in GitHub secrets."
+            exit 1
+          fi
+          echo "✅ Render secrets found."
 
-      - name: Upload prebuilt bundle to Render
+      - name: Trigger Render deploy via API
         run: |
-          curl -X POST \
-            -H "Authorization: Bearer ${{ secrets.RENDER_API_KEY }}" \
-            -F "tar=@deploy.tar.gz" \
-            "https://api.render.com/v1/services/${{ env.RENDER_SERVICE_ID }}/deploys"
+          echo "🚀 Triggering Render deploy..."
+          response=$(curl -s -w "\n%{http_code}" -X POST \
+            "https://api.render.com/v1/services/${{ env.RENDER_SERVICE_ID }}/deploys" \
+            -H "Accept: application/json" \
+            -H "Authorization: Bearer ${{ env.RENDER_API_KEY }}" \
+            -d '{}')
+
+          http_code=$(tail -n1 <<< "$response")
+          body=$(head -n -1 <<< "$response")
+
+          echo "🔍 Render API response:"
+          echo "$body"
+
+          if [ "$http_code" -ne 201 ]; then
+            echo "❌ Failed to trigger Render deploy. HTTP status: $http_code"
+            exit 1
+          fi
+
+          echo "✅ Successfully triggered Render deploy."
