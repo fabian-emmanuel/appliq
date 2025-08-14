@@ -10,7 +10,7 @@ RUN apt-get update && \
     && rm -rf /var/lib/apt/lists/*
 
 # Install SQLx CLI
-RUN cargo install sqlx-cli --version 0.7.3 --no-default-features --features postgres --locked
+RUN cargo install sqlx-cli --version 0.7.3 --no-default-features --features "postgres,rustls" --locked
 
 # Runtime stage
 FROM debian:bookworm-slim
