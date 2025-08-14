@@ -70,12 +70,12 @@ jobs:
 
       - name: Upload to Render
         run: |
-          response=$(curl -s -w "%{\nhttp_code}" -X POST "https://api.render.com/v1/services/${{ env.RENDER_SERVICE_ID }}/deploys" \
+          response=$(curl -s -w "\n%{http_code}" -X POST "https://api.render.com/v1/services/${{ env.RENDER_SERVICE_ID }}/deploys" \
             -H "Authorization: Bearer ${{ env.RENDER_API_KEY }}" \
             -F "tar=@deploy.tar.gz")
-          
-          http_code=$(tail -n1 <<< "$response")
-          body=$(head -n -1 <<< "$response")
+
+          http_code=$(echo "$response" | tail -n1)
+          body=$(echo "$response" | head -n -1)
 
           if [ "$http_code" -ne 201 ]; then
             echo "Failed to trigger Render deploy. HTTP status code: $http_code"
@@ -85,3 +85,4 @@ jobs:
 
           echo "Successfully triggered Render deploy."
           echo "Response body: $body"
+      
