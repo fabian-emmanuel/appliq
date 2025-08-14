@@ -32,4 +32,4 @@ WORKDIR /app
 COPY db ./db
 
 # Default command to run migrations
-CMD ["sqlx", "migrate", "run"]
+CMD ["sqlx", "migrate", "run", "--source", "./db/migrations"]
