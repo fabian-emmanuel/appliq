@@ -10,7 +10,7 @@ RUN apt-get update && \
     && rm -rf /var/lib/apt/lists/*
 
 # Install SQLx CLI
-RUN cargo install sqlx-cli --no-default-features --features postgres
+RUN cargo install sqlx-cli --version 0.7.3 --no-default-features --features postgres --locked
 
 # Runtime stage
 FROM debian:bookworm-slim
@@ -33,4 +33,3 @@ COPY db ./db
 
 # Default command to run migrations
 CMD ["sqlx", "migrate", "run"]
-
