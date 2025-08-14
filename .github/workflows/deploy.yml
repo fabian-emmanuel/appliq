@@ -3,7 +3,7 @@ name: Build and Deploy to Render
 on:
   push:
     branches:
-      - dev
+      - dev  # only deploy when dev branch is updated
 
 env:
   RENDER_SERVICE_ID: ${{ secrets.RENDER_SERVICE_ID }}
@@ -20,7 +20,7 @@ jobs:
       - name: Check for DATABASE_URL secret
         if: env.DATABASE_URL == ''
         run: |
-          echo "❌ DATABASE_URL secret not set in GitHub secrets."
+          echo "DATABASE_URL secret not set. Please add it to your GitHub repository secrets."
           exit 1
 
       - name: Build migration image
@@ -52,30 +52,20 @@ jobs:
           mkdir deploy
           cp target/release/appliq deploy/app
           cp -r db resources deploy/
+          cp Dockerfile deploy/Dockerfile
+          cd deploy
+          tar -czf ../deploy.tar.gz .
+          cd ..
+          ls -lh deploy.tar.gz
 
-      - name: Copy runtime Dockerfile
-        run: cp Dockerfile deploy/Dockerfile
-
-      - name: Verify Render Secrets
+      - name: Trigger Render deploy with tarball
         run: |
-          if [ -z "${{ env.RENDER_SERVICE_ID }}" ]; then
-            echo "❌ Missing RENDER_SERVICE_ID in GitHub secrets."
-            exit 1
-          fi
-          if [ -z "${{ env.RENDER_API_KEY }}" ]; then
-            echo "❌ Missing RENDER_API_KEY in GitHub secrets."
-            exit 1
-          fi
-          echo "✅ Render secrets found."
-
-      - name: Trigger Render deploy via API
-        run: |
-          echo "🚀 Triggering Render deploy..."
+          echo "🚀 Uploading tarball to Render..."
           response=$(curl -s -w "\n%{http_code}" -X POST \
             "https://api.render.com/v1/services/${{ env.RENDER_SERVICE_ID }}/deploys" \
-            -H "Accept: application/json" \
             -H "Authorization: Bearer ${{ env.RENDER_API_KEY }}" \
-            -d '{}')
+            -H "Accept: application/json" \
+            -F "tar=@deploy.tar.gz")
 
           http_code=$(tail -n1 <<< "$response")
           body=$(head -n -1 <<< "$response")
@@ -88,4 +78,4 @@ jobs:
             exit 1
           fi
 
-          echo "✅ Successfully triggered Render deploy."
+          echo "✅ Successfully triggered Render deploy with tarball."
