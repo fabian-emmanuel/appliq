@@ -103,10 +103,13 @@ jobs:
           # Make the binary executable
           chmod +x deploy/app
 
-      - name: Commit and push binary
+      - name: Create and push to deploy branch
         run: |
           git config --local user.email "action@github.com"
           git config --local user.name "GitHub Action"
+          
+          # Create or switch to deploy branch
+          git checkout -B render-deploy
           
           # Add the deploy folder to git
           git add deploy/
@@ -115,8 +118,8 @@ jobs:
           if git diff --cached --quiet; then
             echo "No changes to commit"
           else
-            git commit -m "Deploy: Update pre-built binary [skip ci]"
-            git push
+            git commit -m "Deploy: Update pre-built binary $(date '+%Y-%m-%d %H:%M:%S')"
+            git push origin render-deploy --force
           fi
 
       - name: Trigger Render Deploy
